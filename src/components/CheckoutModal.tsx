@@ -130,6 +130,7 @@ function StepDetails({ onBack, onContinue }: { onBack: () => void; onContinue: (
   const { buyer, setBuyerField, courier, setCourier, region, setRegion } = useStore()
   const [touched, setTouched] = useState(false)
   const selectedRegion = shippingRegions.find((item) => item.id === region) ?? shippingRegions[0]
+  const isLalamove = courier === 'lalamove'
   const valid = requiredFields.every((field) => buyer[field].trim().length > 0)
 
   const handleContinue = () => {
@@ -199,7 +200,7 @@ function StepDetails({ onBack, onContinue }: { onBack: () => void; onContinue: (
         </label>
       </div>
 
-      <div className="checkout-subhead">Courier Preference</div>
+      <div className="checkout-subhead">Courier</div>
       <div className="option-grid">
         {couriers.map((item) => (
           <button
@@ -213,24 +214,37 @@ function StepDetails({ onBack, onContinue }: { onBack: () => void; onContinue: (
         ))}
       </div>
 
-      <div className="checkout-subhead">Shipping Region</div>
-      <div className="option-grid option-grid--three">
-        {shippingRegions.map((item) => (
-          <button
-            key={item.id}
-            className={`option-tile ${region === item.id ? 'is-active' : ''}`}
-            onClick={() => setRegion(item.id)}
-          >
-            <b>{item.label}</b>
-            <span>{formatPrice(item.fee)}</span>
-          </button>
-        ))}
-      </div>
-      <div className="checkout-notice">
-        <strong>Note:</strong> Shipping fees shown are estimates and may vary depending on package
-        weight and the number of parcels. Your selected region ({selectedRegion.label}) adds{' '}
-        {formatPrice(selectedRegion.fee)} to your total.
-      </div>
+      {isLalamove ? (
+        <div className="checkout-notice checkout-notice--lalamove" role="note">
+          <strong>Choosing Lalamove?</strong> Please get in touch with us at{' '}
+          <a href="mailto:lovin.glow.ph@gmail.com" className="notice-link">lovin.glow.ph@gmail.com</a>{' '}
+          to arrange your booking.
+          <br /><br />
+          <strong>Note:</strong> The delivery fee is handled separately and will{' '}
+          <em>not</em> be charged at checkout.
+        </div>
+      ) : (
+        <>
+          <div className="checkout-subhead">Shipping Region</div>
+          <div className="option-grid option-grid--three">
+            {shippingRegions.map((item) => (
+              <button
+                key={item.id}
+                className={`option-tile ${region === item.id ? 'is-active' : ''}`}
+                onClick={() => setRegion(item.id)}
+              >
+                <b>{item.label}</b>
+                <span>{formatPrice(item.fee)}</span>
+              </button>
+            ))}
+          </div>
+          <div className="checkout-notice">
+            <strong>Note:</strong> Shipping fees are estimates and may vary depending on package
+            weight and the number of parcels. Your selected region ({selectedRegion.label}) adds{' '}
+            {formatPrice(selectedRegion.fee)} to your total.
+          </div>
+        </>
+      )}
 
       <div className="checkout-footer checkout-footer--split">
         <button className="button button--outline" onClick={onBack} id="checkout-back-to-order">
@@ -255,6 +269,7 @@ function StepPayment({ onBack }: { onBack: () => void }) {
     receiptFile,
     setReceiptFile,
     region,
+    courier,
     orderReference,
     placingOrder,
     placeOrder,
@@ -263,8 +278,10 @@ function StepPayment({ onBack }: { onBack: () => void }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const isLalamove = courier === 'lalamove'
   const selectedRegion = shippingRegions.find((item) => item.id === region) ?? shippingRegions[0]
-  const total = subtotal + selectedRegion.fee
+  const shippingFee = isLalamove ? 0 : selectedRegion.fee
+  const total = subtotal + shippingFee
   const method = paymentMethods.find((item) => item.id === paymentMethodId)
 
   const handleFile = (file: File | null | undefined) => {
@@ -292,14 +309,31 @@ function StepPayment({ onBack }: { onBack: () => void }) {
           <b>{formatPrice(subtotal)}</b>
         </div>
         <div className="summary-line">
-          <span>Shipping Fee ({selectedRegion.label})</span>
-          <b>{formatPrice(selectedRegion.fee)}</b>
+          {isLalamove ? (
+            <>
+              <span>Shipping Fee</span>
+              <b className="shipping-arranged">Arranged separately</b>
+            </>
+          ) : (
+            <>
+              <span>Shipping Fee ({selectedRegion.label})</span>
+              <b>{formatPrice(shippingFee)}</b>
+            </>
+          )}
         </div>
         <div className="summary-line summary-line--total">
           <span>Total Amount Due</span>
           <b>{formatPrice(total)}</b>
         </div>
       </div>
+
+      {isLalamove && (
+        <div className="checkout-notice checkout-notice--lalamove" role="note">
+          <strong>Lalamove delivery fee not included.</strong> Please contact us at{' '}
+          <a href="mailto:lovin.glow.ph@gmail.com" className="notice-link">lovin.glow.ph@gmail.com</a>{' '}
+          to coordinate your booking after placing your order.
+        </div>
+      )}
 
       <div className="checkout-subhead">Payment Method</div>
       <div className="payment-grid">
@@ -397,6 +431,7 @@ function OrderConfirmed({ onDone }: { onDone: () => void }) {
   if (!lastOrder) return null
   const region = shippingRegions.find((item) => item.id === lastOrder.region)
   const method = paymentMethods.find((item) => item.id === lastOrder.paymentMethod)
+  const isLalamove = lastOrder.courier === 'lalamove'
   const placedDate = new Date(lastOrder.placedAt).toLocaleString('en-PH', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -420,8 +455,17 @@ function OrderConfirmed({ onDone }: { onDone: () => void }) {
           </div>
         ))}
         <div className="summary-line">
-          <span>Shipping Fee ({region?.label})</span>
-          <b>{formatPrice(lastOrder.shippingFee)}</b>
+          {isLalamove ? (
+            <>
+              <span>Shipping Fee</span>
+              <b className="shipping-arranged">Arranged separately</b>
+            </>
+          ) : (
+            <>
+              <span>Shipping Fee ({region?.label})</span>
+              <b>{formatPrice(lastOrder.shippingFee)}</b>
+            </>
+          )}
         </div>
         <div className="summary-line summary-line--total">
           <span>Total Paid via {method?.label}</span>

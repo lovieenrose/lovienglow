@@ -139,7 +139,7 @@ export function Footer() {
         <p className="footer-tagline">Premium peptides, skinboosters &amp; research supplies.</p>
       </div>
       <nav className="footer-links" aria-label="Footer navigation">
-        <a href="mailto:hello@lovienglow.com">Contact</a>
+        <a href="mailto:lovin.glow.ph@gmail.com">Contact</a>
         <a href="#top">Shipping &amp; Returns</a>
         <a href="#top">Privacy Policy</a>
         <a href="#top">Terms &amp; Conditions</a>

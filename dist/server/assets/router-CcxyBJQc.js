@@ -729,11 +729,12 @@ function ProductVisual({ product, compact = false }) {
   );
 }
 const emptyBuyer = { fullName: "", socialHandle: "", contactNumber: "", email: "", address: "" };
+const ORDER_COUNTER_KEY = "lng_order_counter";
 function generateReference() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return `KA-${code}`;
+  const last = parseInt(localStorage.getItem(ORDER_COUNTER_KEY) ?? "0", 10);
+  const next = last + 1;
+  localStorage.setItem(ORDER_COUNTER_KEY, String(next));
+  return `LNG-${String(next).padStart(6, "0")}`;
 }
 const StoreContext = createContext(null);
 function StoreProvider({ children }) {
@@ -787,7 +788,7 @@ function StoreProvider({ children }) {
       return { productId: product.id, name: product.name, price: product.price, quantity };
     });
     const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
-    const shippingFee = region === "visayas" ? 180 : region === "mindanao" ? 200 : 120;
+    const shippingFee = courier === "lalamove" ? 0 : region === "visayas" ? 180 : region === "mindanao" ? 200 : 120;
     const order = {
       reference: orderReference,
       placedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -977,7 +978,7 @@ function Footer() {
       /* @__PURE__ */ jsx("p", { className: "footer-tagline", children: "Premium peptides, skinboosters & research supplies." })
     ] }),
     /* @__PURE__ */ jsxs("nav", { className: "footer-links", "aria-label": "Footer navigation", children: [
-      /* @__PURE__ */ jsx("a", { href: "mailto:hello@lovienglow.com", children: "Contact" }),
+      /* @__PURE__ */ jsx("a", { href: "mailto:lovin.glow.ph@gmail.com", children: "Contact" }),
       /* @__PURE__ */ jsx("a", { href: "#top", children: "Shipping & Returns" }),
       /* @__PURE__ */ jsx("a", { href: "#top", children: "Privacy Policy" }),
       /* @__PURE__ */ jsx("a", { href: "#top", children: "Terms & Conditions" })
@@ -1122,6 +1123,7 @@ function StepDetails({ onBack, onContinue }) {
   const { buyer, setBuyerField, courier, setCourier, region, setRegion } = useStore();
   const [touched, setTouched] = useState(false);
   const selectedRegion = shippingRegions.find((item) => item.id === region) ?? shippingRegions[0];
+  const isLalamove = courier === "lalamove";
   const valid = requiredFields.every((field) => buyer[field].trim().length > 0);
   const handleContinue = () => {
     setTouched(true);
@@ -1197,7 +1199,7 @@ function StepDetails({ onBack, onContinue }) {
         touched && !buyer.address && /* @__PURE__ */ jsx("em", { className: "field-error", children: "Delivery address is required." })
       ] })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: "checkout-subhead", children: "Courier Preference" }),
+    /* @__PURE__ */ jsx("div", { className: "checkout-subhead", children: "Courier" }),
     /* @__PURE__ */ jsx("div", { className: "option-grid", children: couriers.map((item) => /* @__PURE__ */ jsxs(
       "button",
       {
@@ -1210,27 +1212,43 @@ function StepDetails({ onBack, onContinue }) {
       },
       item.id
     )) }),
-    /* @__PURE__ */ jsx("div", { className: "checkout-subhead", children: "Shipping Region" }),
-    /* @__PURE__ */ jsx("div", { className: "option-grid option-grid--three", children: shippingRegions.map((item) => /* @__PURE__ */ jsxs(
-      "button",
-      {
-        className: `option-tile ${region === item.id ? "is-active" : ""}`,
-        onClick: () => setRegion(item.id),
-        children: [
-          /* @__PURE__ */ jsx("b", { children: item.label }),
-          /* @__PURE__ */ jsx("span", { children: formatPrice(item.fee) })
-        ]
-      },
-      item.id
-    )) }),
-    /* @__PURE__ */ jsxs("div", { className: "checkout-notice", children: [
-      /* @__PURE__ */ jsx("strong", { children: "Note:" }),
-      " Shipping fees shown are estimates and may vary depending on package weight and the number of parcels. Your selected region (",
-      selectedRegion.label,
-      ") adds",
+    isLalamove ? /* @__PURE__ */ jsxs("div", { className: "checkout-notice checkout-notice--lalamove", role: "note", children: [
+      /* @__PURE__ */ jsx("strong", { children: "Choosing Lalamove?" }),
+      " Please get in touch with us at",
       " ",
-      formatPrice(selectedRegion.fee),
-      " to your total."
+      /* @__PURE__ */ jsx("a", { href: "mailto:lovin.glow.ph@gmail.com", className: "notice-link", children: "lovin.glow.ph@gmail.com" }),
+      " ",
+      "to arrange your booking.",
+      /* @__PURE__ */ jsx("br", {}),
+      /* @__PURE__ */ jsx("br", {}),
+      /* @__PURE__ */ jsx("strong", { children: "Note:" }),
+      " The delivery fee is handled separately and will",
+      " ",
+      /* @__PURE__ */ jsx("em", { children: "not" }),
+      " be charged at checkout."
+    ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx("div", { className: "checkout-subhead", children: "Shipping Region" }),
+      /* @__PURE__ */ jsx("div", { className: "option-grid option-grid--three", children: shippingRegions.map((item) => /* @__PURE__ */ jsxs(
+        "button",
+        {
+          className: `option-tile ${region === item.id ? "is-active" : ""}`,
+          onClick: () => setRegion(item.id),
+          children: [
+            /* @__PURE__ */ jsx("b", { children: item.label }),
+            /* @__PURE__ */ jsx("span", { children: formatPrice(item.fee) })
+          ]
+        },
+        item.id
+      )) }),
+      /* @__PURE__ */ jsxs("div", { className: "checkout-notice", children: [
+        /* @__PURE__ */ jsx("strong", { children: "Note:" }),
+        " Shipping fees are estimates and may vary depending on package weight and the number of parcels. Your selected region (",
+        selectedRegion.label,
+        ") adds",
+        " ",
+        formatPrice(selectedRegion.fee),
+        " to your total."
+      ] })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: "checkout-footer checkout-footer--split", children: [
       /* @__PURE__ */ jsx("button", { className: "button button--outline", onClick: onBack, id: "checkout-back-to-order", children: "Back" }),
@@ -1253,6 +1271,7 @@ function StepPayment({ onBack }) {
     receiptFile,
     setReceiptFile,
     region,
+    courier,
     orderReference,
     placingOrder,
     placeOrder
@@ -1260,8 +1279,10 @@ function StepPayment({ onBack }) {
   const { lines, subtotal } = useCartLines();
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
+  const isLalamove = courier === "lalamove";
   const selectedRegion = shippingRegions.find((item) => item.id === region) ?? shippingRegions[0];
-  const total = subtotal + selectedRegion.fee;
+  const shippingFee = isLalamove ? 0 : selectedRegion.fee;
+  const total = subtotal + shippingFee;
   const method = paymentMethods.find((item) => item.id === paymentMethodId);
   const handleFile = (file) => {
     if (!file) return;
@@ -1287,18 +1308,29 @@ function StepPayment({ onBack }) {
         /* @__PURE__ */ jsx("span", { children: "Order Subtotal" }),
         /* @__PURE__ */ jsx("b", { children: formatPrice(subtotal) })
       ] }),
-      /* @__PURE__ */ jsxs("div", { className: "summary-line", children: [
+      /* @__PURE__ */ jsx("div", { className: "summary-line", children: isLalamove ? /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx("span", { children: "Shipping Fee" }),
+        /* @__PURE__ */ jsx("b", { className: "shipping-arranged", children: "Arranged separately" })
+      ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsxs("span", { children: [
           "Shipping Fee (",
           selectedRegion.label,
           ")"
         ] }),
-        /* @__PURE__ */ jsx("b", { children: formatPrice(selectedRegion.fee) })
-      ] }),
+        /* @__PURE__ */ jsx("b", { children: formatPrice(shippingFee) })
+      ] }) }),
       /* @__PURE__ */ jsxs("div", { className: "summary-line summary-line--total", children: [
         /* @__PURE__ */ jsx("span", { children: "Total Amount Due" }),
         /* @__PURE__ */ jsx("b", { children: formatPrice(total) })
       ] })
+    ] }),
+    isLalamove && /* @__PURE__ */ jsxs("div", { className: "checkout-notice checkout-notice--lalamove", role: "note", children: [
+      /* @__PURE__ */ jsx("strong", { children: "Lalamove delivery fee not included." }),
+      " Please contact us at",
+      " ",
+      /* @__PURE__ */ jsx("a", { href: "mailto:lovin.glow.ph@gmail.com", className: "notice-link", children: "lovin.glow.ph@gmail.com" }),
+      " ",
+      "to coordinate your booking after placing your order."
     ] }),
     /* @__PURE__ */ jsx("div", { className: "checkout-subhead", children: "Payment Method" }),
     /* @__PURE__ */ jsx("div", { className: "payment-grid", children: paymentMethods.map((item) => /* @__PURE__ */ jsx(
@@ -1395,6 +1427,7 @@ function OrderConfirmed({ onDone }) {
   if (!lastOrder) return null;
   const region = shippingRegions.find((item) => item.id === lastOrder.region);
   const method = paymentMethods.find((item) => item.id === lastOrder.paymentMethod);
+  const isLalamove = lastOrder.courier === "lalamove";
   const placedDate = new Date(lastOrder.placedAt).toLocaleString("en-PH", {
     dateStyle: "medium",
     timeStyle: "short"
@@ -1421,14 +1454,17 @@ function OrderConfirmed({ onDone }) {
         ] }),
         /* @__PURE__ */ jsx("b", { children: formatPrice(line.price * line.quantity) })
       ] }, line.productId)),
-      /* @__PURE__ */ jsxs("div", { className: "summary-line", children: [
+      /* @__PURE__ */ jsx("div", { className: "summary-line", children: isLalamove ? /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx("span", { children: "Shipping Fee" }),
+        /* @__PURE__ */ jsx("b", { className: "shipping-arranged", children: "Arranged separately" })
+      ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsxs("span", { children: [
           "Shipping Fee (",
           region?.label,
           ")"
         ] }),
         /* @__PURE__ */ jsx("b", { children: formatPrice(lastOrder.shippingFee) })
-      ] }),
+      ] }) }),
       /* @__PURE__ */ jsxs("div", { className: "summary-line summary-line--total", children: [
         /* @__PURE__ */ jsxs("span", { children: [
           "Total Paid via ",
@@ -1508,7 +1544,7 @@ function RootDocument({ children }) {
     ] })
   ] });
 }
-const $$splitComponentImporter = () => import("./index-gbwaJNbo.js");
+const $$splitComponentImporter = () => import("./index-C_s6aa0_.js");
 const Route = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
 });

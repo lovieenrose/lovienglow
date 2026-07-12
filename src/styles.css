@@ -1383,6 +1383,26 @@ h1, h2, h3, h4 { line-height: 1.15; }
   line-height: 1.65;
 }
 .checkout-notice strong { font-weight: 700; }
+/* Lalamove-specific notice — warm amber tint to distinguish from standard note */
+.checkout-notice--lalamove {
+  background: #fef9ec;
+  color: #7a5c00;
+  border: 1px solid #f0d97a;
+}
+.checkout-notice--lalamove strong { font-weight: 700; }
+.notice-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.notice-link:hover { opacity: .75; }
+/* "Arranged separately" label in the order summary */
+.shipping-arranged {
+  color: #7a5c00;
+  font-style: italic;
+  font-size: 11px;
+}
 
 /* Payment methods */
 .payment-grid { display: flex; flex-wrap: wrap; gap: var(--space-sm); }

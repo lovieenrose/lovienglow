@@ -26,11 +26,16 @@ export interface OrderRecord {
 
 const emptyBuyer: BuyerDetails = { fullName: '', socialHandle: '', contactNumber: '', email: '', address: '' }
 
-function generateReference() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = ''
-  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
-  return `KA-${code}`
+const ORDER_COUNTER_KEY = 'lng_order_counter'
+
+function generateReference(): string {
+  // localStorage is only available in the browser — the SSR pass uses a
+  // static placeholder which is immediately overwritten on the client.
+  if (typeof localStorage === 'undefined') return 'LNG-000000'
+  const last = parseInt(localStorage.getItem(ORDER_COUNTER_KEY) ?? '0', 10)
+  const next = last + 1
+  localStorage.setItem(ORDER_COUNTER_KEY, String(next))
+  return `LNG-${String(next).padStart(6, '0')}`
 }
 
 interface StoreContextValue {
@@ -133,7 +138,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { productId: product.id, name: product.name, price: product.price, quantity }
     })
     const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0)
-    const shippingFee = region === 'visayas' ? 180 : region === 'mindanao' ? 200 : 120
+    // Lalamove deliveries are arranged directly with the store — no fee at checkout.
+    const shippingFee =
+      courier === 'lalamove'
+        ? 0
+        : region === 'visayas'
+          ? 180
+          : region === 'mindanao'
+            ? 200
+            : 120
     const order: OrderRecord = {
       reference: orderReference,
       placedAt: new Date().toISOString(),
