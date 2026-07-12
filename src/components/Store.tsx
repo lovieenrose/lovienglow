@@ -35,7 +35,6 @@ function generateReference() {
 
 interface StoreContextValue {
   cart: Record<number, number>
-  wishlist: number[]
   cartOpen: boolean
   toast: string
   query: string
@@ -43,7 +42,6 @@ interface StoreContextValue {
   addToCart: (id: number, quantity?: number) => void
   removeFromCart: (id: number) => void
   updateQuantity: (id: number, quantity: number) => void
-  toggleWishlist: (id: number) => void
   setCartOpen: (open: boolean) => void
 
   checkoutOpen: boolean
@@ -74,7 +72,6 @@ const StoreContext = createContext<StoreContextValue | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Record<number, number>>({})
-  const [wishlist, setWishlist] = useState<number[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [query, setQuery] = useState('')
@@ -88,7 +85,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [placingOrder, setPlacingOrder] = useState(false)
   const [lastOrder, setLastOrder] = useState<OrderRecord | null>(null)
-  const [orderReference, setOrderReference] = useState(generateReference())
+  const [orderReference, setOrderReference] = useState(generateReference)
 
   const notify = (message: string) => {
     setToast(message)
@@ -97,7 +94,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (id: number, quantity = 1) => {
     setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + quantity }))
-    notify('Added to your ritual bag')
+    notify('Added to cart')
   }
 
   const removeFromCart = (id: number) => {
@@ -113,11 +110,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCart((current) => ({ ...current, [id]: quantity }))
   }
 
-  const toggleWishlist = (id: number) => {
-    setWishlist((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
-    notify(wishlist.includes(id) ? 'Removed from wishlist' : 'Saved to your wishlist')
-  }
-
   const openCheckout = () => {
     setCartOpen(false)
     setCheckoutStep(1)
@@ -127,7 +119,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const closeCheckout = () => setCheckoutOpen(false)
   const goToStep = (step: 1 | 2 | 3) => setCheckoutStep(step)
 
-  const setBuyerField = (field: keyof BuyerDetails, value: string) => setBuyer((current) => ({ ...current, [field]: value }))
+  const setBuyerField = (field: keyof BuyerDetails, value: string) =>
+    setBuyer((current) => ({ ...current, [field]: value }))
 
   // Stubbed order placement: builds the order record, generates a reference,
   // and clears the cart. Wire this up to your backend + email service —
@@ -179,10 +172,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <StoreContext.Provider
       value={{
-        cart, wishlist, cartOpen, toast, query, setQuery, addToCart, removeFromCart, updateQuantity, toggleWishlist, setCartOpen,
+        cart, cartOpen, toast, query, setQuery, addToCart, removeFromCart, updateQuantity, setCartOpen,
         checkoutOpen, checkoutStep, openCheckout, closeCheckout, goToStep,
-        buyer, setBuyerField, courier, setCourier, region, setRegion, paymentMethodId, setPaymentMethodId, receiptFile, setReceiptFile,
-        orderReference, placingOrder, lastOrder, placeOrder, startNewOrder,
+        buyer, setBuyerField, courier, setCourier, region, setRegion, paymentMethodId, setPaymentMethodId,
+        receiptFile, setReceiptFile, orderReference, placingOrder, lastOrder, placeOrder, startNewOrder,
       }}
     >
       {children}

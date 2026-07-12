@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import products, { categories } from '@/data/products'
 import { ProductCard } from '@/components/ProductCard'
@@ -11,13 +11,15 @@ function ShopPage() {
   const { query, setQuery } = useStore()
   const [category, setCategory] = useState('All')
   const [sort, setSort] = useState('featured')
-  const [visible, setVisible] = useState(8)
+  const [visible, setVisible] = useState(12)
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase()
     return [...products]
       .filter((product) => category === 'All' || product.category === category)
-      .filter((product) => `${product.name} ${product.shortDescription} ${product.category}`.toLowerCase().includes(normalized))
+      .filter((product) =>
+        `${product.name} ${product.shortDescription} ${product.category}`.toLowerCase().includes(normalized)
+      )
       .sort((first, second) => {
         if (sort === 'newest') return Number(second.isNew) - Number(first.isNew)
         if (sort === 'best') return second.reviews - first.reviews
@@ -30,50 +32,94 @@ function ShopPage() {
 
   return (
     <div className="catalog-page" id="top">
-      <div className="catalog-hero">
-        <span className="eyebrow"><Sparkles size={12} /> LovieNGlow</span>
-        <h1>Peptide beauty, <em>all in one shop.</em></h1>
-        <p>A clean, premium edit of GLP products, skinboosters, topicals, liquid blends, peptide supplies, waters, and other research essentials.</p>
-      </div>
-
       <div className="catalog-toolbar">
-        <div className="search-field">
-          <Search />
-          <input value={query} onChange={(event) => { setQuery(event.target.value); setVisible(8) }} placeholder="Search the collection" />
-          {query && <button onClick={() => setQuery('')}>×</button>}
+        <div className="toolbar-left">
+          <div className="search-field" role="search">
+            <Search size={15} aria-hidden="true" />
+            <input
+              value={query}
+              onChange={(event) => { setQuery(event.target.value); setVisible(12) }}
+              placeholder="Search products…"
+              aria-label="Search products"
+              id="product-search"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} aria-label="Clear search">
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
-        <label>
-          <SlidersHorizontal /> Sort by
-          <select value={sort} onChange={(event) => setSort(event.target.value)}>
-            <option value="featured">Featured</option>
-            <option value="newest">Newest</option>
-            <option value="best">Best selling</option>
-            <option value="price-low">Price: low to high</option>
-            <option value="price-high">Price: high to low</option>
-            <option value="name">Name</option>
-          </select>
-        </label>
+        <div className="toolbar-right">
+          <label className="sort-label" htmlFor="sort-select">
+            <SlidersHorizontal size={14} aria-hidden="true" />
+            <span>Sort</span>
+            <select
+              id="sort-select"
+              value={sort}
+              onChange={(event) => setSort(event.target.value)}
+            >
+              <option value="featured">Featured</option>
+              <option value="newest">Newest</option>
+              <option value="best">Best Selling</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </label>
+        </div>
       </div>
 
-      <div className="category-tabs">
+      <div className="category-tabs" role="tablist" aria-label="Product categories">
         {categories.map((item) => (
-          <button className={category === item ? 'active' : ''} onClick={() => { setCategory(item); setVisible(8) }} key={item}>{item}</button>
+          <button
+            key={item}
+            role="tab"
+            aria-selected={category === item}
+            className={category === item ? 'active' : ''}
+            onClick={() => { setCategory(item); setVisible(12) }}
+          >
+            {item}
+          </button>
         ))}
       </div>
 
-      <div className="catalog-count"><b>{filtered.length}</b> products <span>·</span> {category === 'All' ? 'The complete collection' : category}</div>
+      <div className="catalog-meta">
+        <span className="catalog-count">
+          <b>{filtered.length}</b> {filtered.length === 1 ? 'product' : 'products'}
+          {category !== 'All' && <> in <em>{category}</em></>}
+        </span>
+      </div>
 
       {filtered.length ? (
         <>
-          <div className="product-grid catalog-grid">{filtered.slice(0, visible).map((product) => <ProductCard product={product} key={product.id} />)}</div>
-          {visible < filtered.length && <button className="button button--outline load-more" onClick={() => setVisible((current) => current + 4)}>Load more</button>}
+          <div className="product-grid catalog-grid">
+            {filtered.slice(0, visible).map((product) => (
+              <ProductCard product={product} key={product.id} />
+            ))}
+          </div>
+          {visible < filtered.length && (
+            <div className="load-more-wrap">
+              <button
+                className="button button--outline load-more"
+                onClick={() => setVisible((current) => current + 8)}
+              >
+                Load More Products
+              </button>
+            </div>
+          )}
         </>
       ) : (
         <div className="empty-results">
-          <Search />
-          <h2>No rituals found</h2>
-          <p>Try another search or clear your filters.</p>
-          <button className="button button--dark" onClick={() => { setQuery(''); setCategory('All') }}>View all products</button>
+          <Search size={32} aria-hidden="true" />
+          <h2>No products found</h2>
+          <p>Try a different search term or clear your filters to browse all products.</p>
+          <button
+            className="button button--dark"
+            onClick={() => { setQuery(''); setCategory('All') }}
+          >
+            View All Products
+          </button>
         </div>
       )}
     </div>
