@@ -1,0 +1,1 @@
+import{j as t}from"./index-BEldBtxt.js";import{C as o}from"./ComingSoon-Bt7y0vu8.js";const e=()=>t.jsx(o,{title:"Settings",description:"Admin settings are coming in a future update."});export{e as component};

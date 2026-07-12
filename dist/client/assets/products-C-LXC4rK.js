@@ -1,0 +1,1 @@
+import{j as o}from"./index-BEldBtxt.js";import{C as t}from"./ComingSoon-Bt7y0vu8.js";const p=()=>o.jsx(t,{title:"Products",description:"Full product CRUD is coming in a future update."});export{p as component};

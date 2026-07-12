@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
 import products from '@/data/products'
+import { submitOrderFn } from '@/lib/serverFunctions'
 
 export interface BuyerDetails {
   fullName: string
@@ -25,6 +26,15 @@ export interface OrderRecord {
 }
 
 const emptyBuyer: BuyerDetails = { fullName: '', socialHandle: '', contactNumber: '', email: '', address: '' }
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 const ORDER_COUNTER_KEY = 'lng_order_counter'
 
@@ -127,47 +137,72 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setBuyerField = (field: keyof BuyerDetails, value: string) =>
     setBuyer((current) => ({ ...current, [field]: value }))
 
-  // Stubbed order placement: builds the order record, generates a reference,
-  // and clears the cart. Wire this up to your backend + email service —
-  // e.g. call your API here with the same payload before resolving.
   const placeOrder = async (): Promise<OrderRecord | null> => {
     if (!receiptFile) return null
     setPlacingOrder(true)
-    const lines = Object.entries(cart).map(([id, quantity]) => {
-      const product = products.find((item) => item.id === Number(id))!
-      return { productId: product.id, name: product.name, price: product.price, quantity }
-    })
-    const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0)
-    // Lalamove deliveries are arranged directly with the store — no fee at checkout.
-    const shippingFee =
-      courier === 'lalamove'
-        ? 0
-        : region === 'visayas'
-          ? 180
-          : region === 'mindanao'
-            ? 200
-            : 120
-    const order: OrderRecord = {
-      reference: orderReference,
-      placedAt: new Date().toISOString(),
-      lines,
-      subtotal,
-      shippingFee,
-      total: subtotal + shippingFee,
-      buyer,
-      courier,
-      region,
-      paymentMethod: paymentMethodId,
-      receiptName: receiptFile.name,
+    try {
+      const lines = Object.entries(cart).map(([id, quantity]) => {
+        const product = products.find((item) => item.id === Number(id))!
+        return { productId: product.id, name: product.name, price: product.price, quantity }
+      })
+      const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0)
+      // Lalamove deliveries are arranged directly with the store — no fee at checkout.
+      const shippingFee =
+        courier === 'lalamove'
+          ? 0
+          : region === 'visayas'
+            ? 180
+            : region === 'mindanao'
+              ? 200
+              : 120
+      const total = subtotal + shippingFee
+      const receiptBase64 = await fileToBase64(receiptFile)
+
+      const saved = await submitOrderFn({
+        data: {
+          fullName: buyer.fullName,
+          contactNumber: buyer.contactNumber,
+          email: buyer.email,
+          socialHandle: buyer.socialHandle,
+          address: buyer.address,
+          courier,
+          region,
+          paymentMethod: paymentMethodId,
+          items: lines.map((line) => ({
+            productId: line.productId,
+            productName: line.name,
+            unitPrice: line.price,
+            quantity: line.quantity,
+            lineTotal: line.price * line.quantity,
+          })),
+          subtotal,
+          shippingFee,
+          total,
+          receiptBase64,
+          receiptFilename: receiptFile.name,
+          receiptContentType: receiptFile.type || 'application/octet-stream',
+        },
+      })
+
+      const order: OrderRecord = {
+        reference: saved.reference,
+        placedAt: saved.placed_at,
+        lines,
+        subtotal: saved.subtotal,
+        shippingFee: saved.shipping_fee,
+        total: saved.total,
+        buyer,
+        courier,
+        region,
+        paymentMethod: paymentMethodId,
+        receiptName: receiptFile.name,
+      }
+      setLastOrder(order)
+      setCart({})
+      return order
+    } finally {
+      setPlacingOrder(false)
     }
-
-    // Simulate a brief submit delay so the UI can show a loading state.
-    await new Promise((resolve) => setTimeout(resolve, 900))
-
-    setLastOrder(order)
-    setCart({})
-    setPlacingOrder(false)
-    return order
   }
 
   const startNewOrder = () => {
