@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrackRouteImport } from './routes/track'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
@@ -24,6 +25,11 @@ import { Route as DashboardEmailsRouteImport } from './routes/dashboard/emails'
 import { Route as DashboardCustomersRouteImport } from './routes/dashboard/customers'
 import { Route as DashboardOrdersRefRouteImport } from './routes/dashboard/orders.$ref'
 
+const TrackRoute = TrackRouteImport.update({
+  id: '/track',
+  path: '/track',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -98,6 +104,7 @@ const DashboardOrdersRefRoute = DashboardOrdersRefRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/track': typeof TrackRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/emails': typeof DashboardEmailsRoute
   '/dashboard/expenses': typeof DashboardExpensesRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/track': typeof TrackRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/emails': typeof DashboardEmailsRoute
   '/dashboard/expenses': typeof DashboardExpensesRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/track': typeof TrackRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/emails': typeof DashboardEmailsRoute
   '/dashboard/expenses': typeof DashboardExpensesRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/track'
     | '/dashboard/customers'
     | '/dashboard/emails'
     | '/dashboard/expenses'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/track'
     | '/dashboard/customers'
     | '/dashboard/emails'
     | '/dashboard/expenses'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/track'
     | '/dashboard/customers'
     | '/dashboard/emails'
     | '/dashboard/expenses'
@@ -196,10 +208,18 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  TrackRoute: typeof TrackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/track': {
+      id: '/track'
+      path: '/track'
+      fullPath: '/track'
+      preLoaderRoute: typeof TrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -348,6 +368,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  TrackRoute: TrackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

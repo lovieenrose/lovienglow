@@ -85,7 +85,7 @@ function getResponse() {
 }
 var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 async function getStartManifest(matchedRoutes) {
-  const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-DKZF5JBo.js");
+  const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-CO9K6zMo.js");
   const startManifest = tsrStartManifest();
   const rootRoute = startManifest.routes[rootRouteId] = startManifest.routes[rootRouteId] || {};
   rootRoute.assets = rootRoute.assets || [];
@@ -112,211 +112,223 @@ async function getStartManifest(matchedRoutes) {
 const manifest = {
   "064d14f6f3a2070bd188f3b9743e542e76e323c704d94d1ca754c9bf98e20a16": {
     functionName: "submitOrderFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "10299f3437834ee87c1daeef96c5d08af0944b44547f0de8f4c77c8b3a8f0baf": {
     functionName: "ownerEstablishSessionFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "f2d75827ef8dc10e260ddeee91b87ed320b5ab9ad2f30e8b9c9ec28c1f0e6574": {
     functionName: "ownerLogoutFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "fda4d4fb930fb4014572a607255c3886b9d660aff9438452bcee23f3d3d4a9a3": {
     functionName: "verifyOwnerFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "6e67e02fbf33a494dc9044cb0d5cddec95a42992e87cb33f8eea83a50ebe0d56": {
     functionName: "getOrdersFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "4caa419df7311540a4fdad8800efb1b003c7d3bef5434f5a5790fa2d7d05ca6c": {
     functionName: "exportOrdersCsvFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "8043a5616716260d3cb6bacac09dfef2ab7bd4aa64a6ef2bf0b0cf0581649467": {
     functionName: "getOrderFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "ae98de1e3dee0c96f3905503bd835f884b47d468b119b80da7c5f80c8568ecd3": {
     functionName: "updateOrderStatusFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
+  },
+  "685d51042677bc3394ac487b906af34c3da851230e65a7f963561b55e49b597c": {
+    functionName: "trackOrderFn_createServerFn_handler",
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
+  },
+  "309134bb0792e7aa2244e5f84c7191ec668970499dabb9ea885db80692ab6d0c": {
+    functionName: "resendOrderEmailFn_createServerFn_handler",
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "eecd1c438edee933e1e65c2799a7c7ca2df76f1c9dea4176720f7a4df62eed46": {
     functionName: "getInventoryFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "12aae7892b451b40fafdec001a0f062e2d9392f6c8ef0ccece5495327a141ebd": {
     functionName: "updateInventoryFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "dbbcdafebc1a4c8e685e56052c07093a2f97c6423de77ab9cbb9db2ade60765d": {
     functionName: "getDashboardAnalyticsFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "4c45f294f79534727fd56df24f2f613ea47fb3ead4173d7c955571cf67477a64": {
     functionName: "getBusinessProfileFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "ba5bbc9d9ecfb69e2a189942ffbf6a417182e668c6a7a248b871f1a2f3693235": {
     functionName: "updateBusinessProfileFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "0b57467e7080635e7692c2a26813c662de6c260bc67b027c09fee61b0dcf928c": {
     functionName: "listCategoriesFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "f7a3576aca7397baddac55b2609de36302ee2ef43be987fe3f4114bedbb5254f": {
     functionName: "createCategoryFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "a9483b918339db544d64d476c9b57354eae5e1281d0a47aa3f5fe408bd14aafa": {
     functionName: "updateCategoryFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "59bf8389c7996ef2ce09daf9e8bd8b308a5dc01515bfca1064d2fcc48b9c217d": {
     functionName: "deleteCategoryFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "afbcea06f7fe6e1cbb68cb86b039619e1dfacd0f06a9899fae660b3aed31266f": {
     functionName: "listSuppliersFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "3759bcc60f6eb19501fe19a936a6946eed1092681cdfe47d191a84c4c6d74418": {
     functionName: "createSupplierFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "ba9d00ebe34d5ea8f9587e033c09c0a7b0904333233bf4f9f6a6bf599779ef2d": {
     functionName: "updateSupplierFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "0ce75896ab426783b0c2965b5472a1a2cfd707bdf8e8a1311acf1cbaafeb7d98": {
     functionName: "deleteSupplierFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "71ad6ebba30c47d602641037166202c36c1578a3a3b897d84c7b26458c214f74": {
     functionName: "listProductsFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "15318a775efe948d28a65741f5d012ff59992509f00920b90afc354c60b5318c": {
     functionName: "createProductFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "1ab44a1876c21839bcc1bcc6404fac908605a6b4d1e8d091db44455cbee78a59": {
     functionName: "updateProductFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "1004642406249ada20b96efbc0f6b8aa18a1143f6c2a6614f63264ad0179948f": {
     functionName: "deleteProductFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "75a20c891d8b67c1cd296b18ba74cbb9374dca5bf3fa333b46f468c1c74395fa": {
     functionName: "adjustProductStockFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "932981c6a6ab81d970bede89651403da36925d202de032dc4cd97bbdb51f7c6c": {
     functionName: "listProductSetsFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "dccae0677d4fdccec3c8ca2ac51f89b4714523dc0e70c723b554da157344aa7b": {
     functionName: "createProductSetFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "d8746b145759685486ef3f5ede21de5c87bc2038bab9994717cb68941a1e02c6": {
     functionName: "deleteProductSetFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "bcde8b372609671cbc96aabd006f0fd0eed275c4af65fee9476ad24806a77660": {
     functionName: "updateProductSetFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "38c305f1f015c66ce8ead0ffc8d9ea299d4e3b49e45a902801446fce5479b866": {
     functionName: "swapProductSetOrderFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "63f7e6a3991ec24b103a66803c2fdd6602c06e05d4ca54084f49d92fc8d3435d": {
     functionName: "listPurchaseOrdersFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "8b780f1a226f92aca76b74ddd6c8dc7bdf1a4d8ff2c6401168e2c2bb2a4b0191": {
     functionName: "getPurchaseOrderFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "c605252bd9c9a2f246dd9972e9fc310f2184f2f7fcb59f4141d4e49c91f66779": {
     functionName: "createPurchaseOrderFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "a4219df99c35f2b68c3b55b1aabdc1e8e911e409e0ced9d246ce141493434dd6": {
     functionName: "updatePurchaseOrderStatusFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
+  },
+  "957d570af43f650bb9e761460ce52181c7d5a3dbe4f6b1f82193b5deeaabdc92": {
+    functionName: "deletePurchaseOrderFn_createServerFn_handler",
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "3603d2dce37e35e26427a30260090e83c2d773119142505c33a438fcc7d4ecab": {
     functionName: "receivePurchaseOrderFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "8084b5812cf6a19d42de1ebc4c5559c11a71e930644a1c75a6821e6688272c31": {
     functionName: "listSalesOrdersFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "96095e92af3c7feb24fd109a7bf9cd536c4f1078aaf929d9e28d65cf88d063f9": {
     functionName: "getSalesOrderFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "63b78c4be65f3edcdc5e0091ebb5b708c1b0c04e8b6b1b22921dfac66ece9a6b": {
     functionName: "completeSaleFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "6ef28ea491d74506002afcf7bd4b22c50c3f3be928866d9f672cc745a0d821f4": {
     functionName: "markSalePaidFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "9bf2d518b70dd1b98f525a9282f5eb6f4416e84f3adb442de047180ac9708a6f": {
     functionName: "reverseSaleFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "d02e2a7047d6a317f1357071b9310a5891fda545e1d48f4085862b5b11c3607f": {
     functionName: "uploadPaymentProofFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "75ccd7b16070f080e64d6ee47b465f2d76564d228314d3e80970cc577d9eec1d": {
     functionName: "uploadInvoiceBannerFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "b1f2bd2c3ca066e16f3772c1b7fec5fb3a5399a77d26c274a78825b8c2f6e869": {
     functionName: "listPromosFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "6eef893dad183c40be94174bf6dc346f75f32b3594b9c6bd95cb653a28d30b74": {
     functionName: "createPromoFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "06ed50819778d1bfe8fedad3a1d9d4c0226d1965ef6e919ecc81828265d612e0": {
     functionName: "updatePromoFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "52c688a98a4a55fdf1a1d85cd6797a92b5368a85f23ad23669142e78f2f056ba": {
     functionName: "deletePromoFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "0f6bde79ff8ce27375fd8b98acb9234db2a48e9adb837efef66366330b50dfe0": {
     functionName: "listExpensesFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "ace3f1205d69604ec3ddb9e60e12161db967ebf62ccc35fa59a574591f4e89ed": {
     functionName: "createExpenseFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "832522675692a4f87501388defd7bc73af2cd2e4a450b40252d4203e82e7c270": {
     functionName: "updateExpenseFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "6174528448d11217af3a189afe82fb8f13dd7536945aeba7f711685c8f1d6494": {
     functionName: "deleteExpenseFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   },
   "82b36a8978a10250bf194a4507351ec317b8f0dbd881621219c0900723340bba": {
     functionName: "getDashboardMetricsFn_createServerFn_handler",
-    importer: () => import("./assets/serverFunctions-Bj5AwYqN.js")
+    importer: () => import("./assets/serverFunctions-DIb-hdkw.js")
   }
 };
 async function getServerFnById(id, access) {
@@ -1071,7 +1083,7 @@ var baseManifestPromise;
 var cachedFinalManifestPromise;
 async function loadEntries() {
   const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-    import("./assets/router-B6tvQDP-.js").then((n) => n.T),
+    import("./assets/router-CEcpJq9W.js").then((n) => n.U),
     import("./assets/start-HYkvq4Ni.js"),
     import("./assets/__23tanstack-start-plugin-adapters-Cwee5PKy.js")
   ]);

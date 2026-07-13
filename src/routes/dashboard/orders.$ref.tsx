@@ -1,16 +1,23 @@
 import { Link, createFileRoute, notFound, useRouter } from '@tanstack/react-router'
-import { ArrowLeft, Download, Maximize2, X } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Download, Maximize2, RotateCcw, XCircle, X } from 'lucide-react'
 import { useState } from 'react'
 import { formatPrice } from '@/data/products'
 import paymentMethods from '@/data/paymentMethods'
 import { shippingRegions } from '@/data/shipping'
-import { getOrderFn, updateOrderStatusFn } from '@/lib/serverFunctions'
-import {
-  fulfillmentLabels,
-  fulfillmentStatusOptions,
-  paymentLabels,
-  paymentStatusOptions,
-} from '@/lib/statusLabels'
+import { getOrderFn, resendOrderEmailFn, updateOrderStatusFn } from '@/lib/serverFunctions'
+import { orderStatusBadgeClass, orderStatusLabels, orderStatusSteps } from '@/lib/statusLabels'
+import type { OrderStatus } from '@/lib/orders'
+
+type EmailType = 'order_received' | 'payment_confirmed' | 'packed' | 'shipped' | 'delivered' | 'admin_notification'
+const RETRYABLE_EMAIL_TYPES = new Set<string>(['order_received', 'payment_confirmed', 'packed', 'shipped', 'delivered', 'admin_notification'])
+
+const STEP_ACTION_LABEL: Record<OrderStatus, string> = {
+  pending_payment: 'Pending Payment',
+  processing: 'Confirm Payment',
+  shipped: 'Mark as Shipped',
+  delivered: 'Mark as Delivered',
+  cancelled: 'Cancelled',
+}
 
 export const Route = createFileRoute('/dashboard/orders/$ref')({
   loader: async ({ params }) => {
@@ -24,36 +31,61 @@ export const Route = createFileRoute('/dashboard/orders/$ref')({
 function OrderDetailPage() {
   const order = Route.useLoaderData()
   const router = useRouter()
-  const [paymentStatus, setPaymentStatus] = useState(order.payment_status)
-  const [fulfillmentStatus, setFulfillmentStatus] = useState(order.fulfillment_status)
   const [trackingNumber, setTrackingNumber] = useState(order.tracking_number ?? '')
   const [internalNotes, setInternalNotes] = useState(order.internal_notes)
-  const [savingPayment, setSavingPayment] = useState(false)
-  const [savingFulfillment, setSavingFulfillment] = useState(false)
+  const [savingTracking, setSavingTracking] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [advancing, setAdvancing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [retrying, setRetrying] = useState<EmailType | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const method = paymentMethods.find((item) => item.id === order.payment_method)
   const region = shippingRegions.find((item) => item.id === order.region)
   const isPdf = order.receipt_filename?.toLowerCase().endsWith('.pdf')
 
-  const savePayment = async () => {
-    setSavingPayment(true)
-    await updateOrderStatusFn({ data: { reference: order.reference, paymentStatus } })
+  const currentStepIndex = orderStatusSteps.indexOf(order.order_status)
+  const nextStep = order.order_status === 'cancelled' ? null : orderStatusSteps[currentStepIndex + 1]
+
+  const advanceTo = async (status: OrderStatus) => {
+    setAdvancing(true)
+    await updateOrderStatusFn({ data: { reference: order.reference, orderStatus: status, trackingNumber: status === 'shipped' ? trackingNumber : undefined } })
     await router.invalidate()
-    setSavingPayment(false)
+    setAdvancing(false)
   }
 
-  const saveFulfillment = async () => {
-    setSavingFulfillment(true)
-    await updateOrderStatusFn({ data: { reference: order.reference, fulfillmentStatus, trackingNumber } })
+  const cancelOrder = async () => {
+    if (!confirm('Cancel this order? This cannot be undone from here.')) return
+    setCancelling(true)
+    await updateOrderStatusFn({ data: { reference: order.reference, orderStatus: 'cancelled' } })
     await router.invalidate()
-    setSavingFulfillment(false)
+    setCancelling(false)
   }
 
   const saveNotes = async () => {
     if (internalNotes === order.internal_notes) return
     await updateOrderStatusFn({ data: { reference: order.reference, internalNotes } })
     await router.invalidate()
+  }
+
+  const saveTrackingNumber = async () => {
+    setSavingTracking(true)
+    await updateOrderStatusFn({ data: { reference: order.reference, trackingNumber } })
+    await router.invalidate()
+    setSavingTracking(false)
+  }
+
+  const retryEmail = async (emailType: EmailType) => {
+    setRetrying(emailType)
+    await resendOrderEmailFn({ data: { reference: order.reference, emailType } })
+    await router.invalidate()
+    setRetrying(null)
+  }
+
+  const copyTrackingCode = async () => {
+    await navigator.clipboard.writeText(order.tracking_code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   return (
@@ -68,12 +100,42 @@ function OrderDetailPage() {
           <span className="dash-detail-header__date">
             {new Date(order.placed_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
           </span>
+          <div className="dash-tracking-code">
+            <span className="dash-muted">Tracking Code:</span> <b>{order.tracking_code}</b>
+            <button className="dash-icon-btn" title="Copy tracking code" onClick={copyTrackingCode}>
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+            </button>
+          </div>
         </div>
         <div className="dash-detail-header__badges">
-          <span className={`dash-badge dash-badge--${order.payment_status}`}>{paymentLabels[order.payment_status]}</span>
-          <span className={`dash-badge dash-badge--${order.fulfillment_status}`}>{fulfillmentLabels[order.fulfillment_status]}</span>
+          <span className={`dash-badge ${orderStatusBadgeClass[order.order_status]}`}>{orderStatusLabels[order.order_status]}</span>
         </div>
       </div>
+
+      <div className="dash-status-stepper">
+        {orderStatusSteps.map((step, i) => (
+          <div key={step} className={`dash-status-step ${i <= currentStepIndex ? 'is-done' : ''} ${i === currentStepIndex ? 'is-current' : ''}`}>
+            <span className="dash-status-step__dot" />
+            <span className="dash-status-step__label">{orderStatusLabels[step]}</span>
+          </div>
+        ))}
+      </div>
+
+      {order.order_status !== 'cancelled' && (
+        <div className="dash-toolbar" style={{ marginTop: 0 }}>
+          <div />
+          <div className="dash-toolbar__actions">
+            {nextStep && (
+              <button className="button button--dark" onClick={() => advanceTo(nextStep)} disabled={advancing}>
+                {advancing ? 'Saving…' : STEP_ACTION_LABEL[nextStep]}
+              </button>
+            )}
+            <button className="dash-link-btn dash-link-btn--danger" onClick={cancelOrder} disabled={cancelling}>
+              <XCircle size={14} /> {cancelling ? 'Cancelling…' : 'Cancel Order'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="dash-detail-grid">
         <section className="dash-panel">
@@ -93,6 +155,13 @@ function OrderDetailPage() {
             <div><dt>Courier</dt><dd>{order.courier === 'lalamove' ? 'Lalamove' : 'J&T Express'}</dd></div>
             <div><dt>Region</dt><dd>{region?.label ?? '—'}</dd></div>
           </dl>
+          <label>
+            <span>Courier Tracking Number (optional)</span>
+            <input value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} placeholder="Optional" />
+          </label>
+          <button className="button button--outline" onClick={saveTrackingNumber} disabled={savingTracking}>
+            {savingTracking ? 'Saving…' : 'Save Tracking Number'}
+          </button>
         </section>
 
         <section className="dash-panel">
@@ -147,36 +216,6 @@ function OrderDetailPage() {
         <section className="dash-panel">
           <h2>Payment</h2>
           <p className="dash-muted">Method: {method?.label ?? order.payment_method}</p>
-          <label>
-            <span>Payment Status</span>
-            <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value as typeof paymentStatus)}>
-              {paymentStatusOptions.map((status) => (
-                <option key={status} value={status}>{paymentLabels[status]}</option>
-              ))}
-            </select>
-          </label>
-          <button className="button button--dark" onClick={savePayment} disabled={savingPayment}>
-            {savingPayment ? 'Saving…' : 'Save Payment Status'}
-          </button>
-        </section>
-
-        <section className="dash-panel">
-          <h2>Fulfillment</h2>
-          <label>
-            <span>Fulfillment Status</span>
-            <select value={fulfillmentStatus} onChange={(event) => setFulfillmentStatus(event.target.value as typeof fulfillmentStatus)}>
-              {fulfillmentStatusOptions.map((status) => (
-                <option key={status} value={status}>{fulfillmentLabels[status]}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Tracking Number</span>
-            <input value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} placeholder="Optional" />
-          </label>
-          <button className="button button--dark" onClick={saveFulfillment} disabled={savingFulfillment}>
-            {savingFulfillment ? 'Saving…' : 'Save Fulfillment Status'}
-          </button>
         </section>
 
         <section className="dash-panel dash-panel--wide">
@@ -202,7 +241,7 @@ function OrderDetailPage() {
                     {new Date(entry.changed_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
                   </span>
                   <span>
-                    {entry.field === 'payment_status' ? 'Payment' : 'Fulfillment'}: {entry.old_value ?? '—'} → {entry.new_value}
+                    {orderStatusLabels[(entry.old_value as OrderStatus) ?? 'pending_payment'] ?? entry.old_value ?? '—'} → {orderStatusLabels[entry.new_value as OrderStatus] ?? entry.new_value}
                   </span>
                 </li>
               ))}
@@ -217,11 +256,23 @@ function OrderDetailPage() {
           ) : (
             <ul className="dash-timeline">
               {order.emails.map((entry) => (
-                <li key={entry.id}>
-                  <span className="dash-timeline__time">
-                    {new Date(entry.sent_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+                <li key={entry.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span>
+                    <span className="dash-timeline__time" style={{ display: 'block' }}>
+                      {new Date(entry.sent_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </span>
+                    {entry.email_type} → {entry.sent_to}{' '}
+                    {entry.success ? '' : <span style={{ color: '#a03030', fontWeight: 600 }}>(failed)</span>}
                   </span>
-                  <span>{entry.email_type} → {entry.sent_to} {entry.success ? '' : '(failed)'}</span>
+                  {!entry.success && RETRYABLE_EMAIL_TYPES.has(entry.email_type) && (
+                    <button
+                      className="button button--outline"
+                      onClick={() => retryEmail(entry.email_type as EmailType)}
+                      disabled={retrying !== null}
+                    >
+                      <RotateCcw size={12} /> {retrying === entry.email_type ? 'Retrying…' : 'Retry'}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

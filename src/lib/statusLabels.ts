@@ -1,4 +1,4 @@
-import type { FulfillmentStatus, PaymentStatus } from './orders'
+import type { FulfillmentStatus, OrderStatus, PaymentStatus } from './orders'
 
 export const paymentLabels: Record<PaymentStatus, string> = {
   pending: 'Pending Validation',
@@ -20,3 +20,23 @@ export const fulfillmentLabels: Record<FulfillmentStatus, string> = {
 
 export const paymentStatusOptions = Object.keys(paymentLabels) as PaymentStatus[]
 export const fulfillmentStatusOptions = Object.keys(fulfillmentLabels) as FulfillmentStatus[]
+
+export const orderStatusLabels: Record<OrderStatus, string> = {
+  pending_payment: 'Pending Payment',
+  processing: 'Processing',
+  shipped: 'Shipped',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+}
+
+export const orderStatusBadgeClass: Record<OrderStatus, string> = {
+  pending_payment: 'dash-badge--order-pending_payment',
+  processing: 'dash-badge--order-processing',
+  shipped: 'dash-badge--order-shipped',
+  delivered: 'dash-badge--order-delivered',
+  cancelled: 'dash-badge--order-cancelled',
+}
+
+// The 4 primary steps an admin steps through; "cancelled" is a separate
+// escape-hatch action, not part of the main sequence.
+export const orderStatusSteps: OrderStatus[] = ['pending_payment', 'processing', 'shipped', 'delivered']

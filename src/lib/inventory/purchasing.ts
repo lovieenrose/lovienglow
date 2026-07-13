@@ -90,10 +90,12 @@ export async function updatePurchaseOrderStatus(
   return updated
 }
 
-// purchase_order_items cascades on delete; deleting never touches product
-// stock — that's only ever adjusted by receivePurchaseOrder.
+// Delegates to the `delete_purchase_order` Postgres function, which reverses
+// any stock already received (decrementing products.stock_quantity and
+// logging a negative stock_adjustments row) before deleting the order and
+// its items, atomically.
 export async function deletePurchaseOrder(ctx: OwnerContext, id: string): Promise<void> {
-  const { error } = await ctx.supabase.from('purchase_orders').delete().eq('id', id).eq('owner_id', ctx.ownerId)
+  const { error } = await ctx.supabase.rpc('delete_purchase_order', { p_purchase_order_id: id })
   if (error) throw error
 }
 

@@ -12,6 +12,20 @@ export type FulfillmentStatus =
   | 'completed'
   | 'cancelled'
 
+// Single unified status the admin actually manages. payment_status /
+// fulfillment_status above are kept in sync automatically for backward
+// compatibility (CSV export, existing badge classes, etc.) but are no
+// longer edited directly.
+export type OrderStatus = 'pending_payment' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+
+const LEGACY_STATUS_BY_ORDER_STATUS: Record<OrderStatus, { paymentStatus: PaymentStatus; fulfillmentStatus: FulfillmentStatus }> = {
+  pending_payment: { paymentStatus: 'pending', fulfillmentStatus: 'pending' },
+  processing: { paymentStatus: 'confirmed', fulfillmentStatus: 'processing' },
+  shipped: { paymentStatus: 'confirmed', fulfillmentStatus: 'shipped' },
+  delivered: { paymentStatus: 'confirmed', fulfillmentStatus: 'delivered' },
+  cancelled: { paymentStatus: 'rejected', fulfillmentStatus: 'cancelled' },
+}
+
 export interface OrderItemInput {
   productId: number
   productName: string
@@ -57,6 +71,8 @@ export interface OrderRow {
   total: number
   payment_status: PaymentStatus
   fulfillment_status: FulfillmentStatus
+  order_status: OrderStatus
+  tracking_code: string
   tracking_number: string | null
   internal_notes: string
   created_at: string
@@ -117,12 +133,18 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithRel
   if (refError) throw refError
   const reference = refData as string
 
+  const { data: trackingData, error: trackingError } = await supabase.rpc('next_tracking_code')
+  if (trackingError) throw trackingError
+  const trackingCode = trackingData as string
+
   const receiptUrl = await uploadReceipt(input.receiptFilename, input.receiptContentType, bytes)
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
       reference,
+      tracking_code: trackingCode,
+      order_status: 'pending_payment',
       placed_at: new Date().toISOString(),
       full_name: input.fullName,
       contact_number: input.contactNumber,
@@ -208,8 +230,7 @@ export async function getOrder(reference: string): Promise<OrderWithRelations | 
 
 export interface ListOrdersFilters {
   search?: string
-  paymentStatus?: string
-  fulfillmentStatus?: string
+  orderStatus?: string
   courier?: string
   dateFrom?: string
   dateTo?: string
@@ -224,15 +245,14 @@ export async function listOrders(filters: ListOrdersFilters = {}) {
 
   let query = supabase.from('orders').select('*', { count: 'exact' })
 
-  if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus)
-  if (filters.fulfillmentStatus) query = query.eq('fulfillment_status', filters.fulfillmentStatus)
+  if (filters.orderStatus) query = query.eq('order_status', filters.orderStatus)
   if (filters.courier) query = query.eq('courier', filters.courier)
   if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
   if (filters.dateTo) query = query.lte('created_at', filters.dateTo)
   if (filters.search) {
     const term = filters.search.trim()
     query = query.or(
-      `reference.ilike.%${term}%,full_name.ilike.%${term}%,contact_number.ilike.%${term}%,email.ilike.%${term}%`,
+      `reference.ilike.%${term}%,tracking_code.ilike.%${term}%,full_name.ilike.%${term}%,contact_number.ilike.%${term}%,email.ilike.%${term}%`,
     )
   }
 
@@ -247,15 +267,14 @@ export async function listAllOrdersForExport(filters: ListOrdersFilters = {}) {
   const supabase = getSupabaseAdmin()
   let query = supabase.from('orders').select('*')
 
-  if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus)
-  if (filters.fulfillmentStatus) query = query.eq('fulfillment_status', filters.fulfillmentStatus)
+  if (filters.orderStatus) query = query.eq('order_status', filters.orderStatus)
   if (filters.courier) query = query.eq('courier', filters.courier)
   if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
   if (filters.dateTo) query = query.lte('created_at', filters.dateTo)
   if (filters.search) {
     const term = filters.search.trim()
     query = query.or(
-      `reference.ilike.%${term}%,full_name.ilike.%${term}%,contact_number.ilike.%${term}%,email.ilike.%${term}%`,
+      `reference.ilike.%${term}%,tracking_code.ilike.%${term}%,full_name.ilike.%${term}%,contact_number.ilike.%${term}%,email.ilike.%${term}%`,
     )
   }
 
@@ -265,8 +284,7 @@ export async function listAllOrdersForExport(filters: ListOrdersFilters = {}) {
 }
 
 export interface UpdateOrderPatch {
-  paymentStatus?: PaymentStatus
-  fulfillmentStatus?: FulfillmentStatus
+  orderStatus?: OrderStatus
   trackingNumber?: string
   internalNotes?: string
   note?: string
@@ -285,38 +303,80 @@ export async function updateOrder(reference: string, patch: UpdateOrderPatch): P
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (patch.trackingNumber !== undefined) update.tracking_number = patch.trackingNumber
   if (patch.internalNotes !== undefined) update.internal_notes = patch.internalNotes
-  if (patch.paymentStatus !== undefined) update.payment_status = patch.paymentStatus
-  if (patch.fulfillmentStatus !== undefined) update.fulfillment_status = patch.fulfillmentStatus
+  if (patch.orderStatus !== undefined) {
+    update.order_status = patch.orderStatus
+    // Kept in sync for backward compatibility — CSV export, existing badge
+    // classes, and getDashboardAnalytics still read these two columns.
+    const legacy = LEGACY_STATUS_BY_ORDER_STATUS[patch.orderStatus]
+    update.payment_status = legacy.paymentStatus
+    update.fulfillment_status = legacy.fulfillmentStatus
+  }
 
   const { error: updateError } = await supabase.from('orders').update(update).eq('id', existingRow.id)
   if (updateError) throw updateError
 
-  const historyRows: Array<{ order_id: string; field: string; old_value: string; new_value: string; note: string | null }> = []
-  if (patch.paymentStatus !== undefined && patch.paymentStatus !== existingRow.payment_status) {
-    historyRows.push({
+  if (patch.orderStatus !== undefined && patch.orderStatus !== existingRow.order_status) {
+    await supabase.from('order_status_history').insert({
       order_id: existingRow.id,
-      field: 'payment_status',
-      old_value: existingRow.payment_status,
-      new_value: patch.paymentStatus,
+      field: 'order_status',
+      old_value: existingRow.order_status,
+      new_value: patch.orderStatus,
       note: patch.note ?? null,
     })
-  }
-  if (patch.fulfillmentStatus !== undefined && patch.fulfillmentStatus !== existingRow.fulfillment_status) {
-    historyRows.push({
-      order_id: existingRow.id,
-      field: 'fulfillment_status',
-      old_value: existingRow.fulfillment_status,
-      new_value: patch.fulfillmentStatus,
-      note: patch.note ?? null,
-    })
-  }
-  if (historyRows.length) {
-    await supabase.from('order_status_history').insert(historyRows)
   }
 
   const updated = await getOrder(reference)
   if (!updated) throw new Error('Order not found after update')
   return updated
+}
+
+// ── Public order tracking (no auth) ──────────────────────────────────────
+// Deliberately excludes address, contact_number, email, receipt_url, and
+// internal_notes — anyone with the tracking code can look up an order, so
+// only non-sensitive fulfillment info is returned.
+
+export interface PublicTrackedOrder {
+  reference: string
+  tracking_code: string
+  order_status: OrderStatus
+  courier: string
+  created_at: string
+  updated_at: string
+  items: Array<Pick<OrderItemRow, 'product_name' | 'quantity' | 'unit_price' | 'line_total'>>
+  history: Array<Pick<StatusHistoryRow, 'new_value' | 'changed_at'>>
+}
+
+export async function getOrderByTrackingCode(trackingCode: string): Promise<PublicTrackedOrder | null> {
+  const supabase = getSupabaseAdmin()
+  const { data: order, error } = await supabase
+    .from('orders')
+    .select('id, reference, tracking_code, order_status, courier, created_at, updated_at')
+    .eq('tracking_code', trackingCode.trim())
+    .maybeSingle()
+  if (error) throw error
+  if (!order) return null
+  const orderRow = order as Pick<OrderRow, 'id' | 'reference' | 'tracking_code' | 'order_status' | 'courier' | 'created_at' | 'updated_at'>
+
+  const [{ data: items }, { data: history }] = await Promise.all([
+    supabase.from('order_items').select('product_name, quantity, unit_price, line_total').eq('order_id', orderRow.id),
+    supabase
+      .from('order_status_history')
+      .select('new_value, changed_at')
+      .eq('order_id', orderRow.id)
+      .eq('field', 'order_status')
+      .order('changed_at', { ascending: true }),
+  ])
+
+  return {
+    reference: orderRow.reference,
+    tracking_code: orderRow.tracking_code,
+    order_status: orderRow.order_status,
+    courier: orderRow.courier,
+    created_at: orderRow.created_at,
+    updated_at: orderRow.updated_at,
+    items: (items as PublicTrackedOrder['items']) ?? [],
+    history: (history as PublicTrackedOrder['history']) ?? [],
+  }
 }
 
 export async function logEmail(orderId: string, emailType: string, sentTo: string, subject: string, success: boolean) {
@@ -328,6 +388,21 @@ export async function logEmail(orderId: string, emailType: string, sentTo: strin
     subject,
     success,
   })
+}
+
+// Guards the automatic status-change triggers so each notification only
+// goes out once per order, even if the same status is saved again later.
+// Manual retries (resendOrderEmail) call the send functions directly and
+// intentionally bypass this check.
+export async function hasEmailBeenSent(orderId: string, emailType: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin()
+  const { count } = await supabase
+    .from('email_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('order_id', orderId)
+    .eq('email_type', emailType)
+    .eq('success', true)
+  return (count ?? 0) > 0
 }
 
 export interface InventoryRow {

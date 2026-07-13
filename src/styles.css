@@ -1716,6 +1716,12 @@ h1, h2, h3, h4 { line-height: 1.15; }
 .dash-badge--pending, .dash-badge--processing, .dash-badge--packed, .dash-badge--ready_for_pickup { background: #fdeecb; color: #a06a10; }
 .dash-badge--shipped { background: #d9e8f9; color: #2a5f9e; }
 .dash-badge--rejected, .dash-badge--cancelled { background: #f9d9d9; color: #a03030; }
+
+.dash-badge--order-pending_payment { background: #fdeecb; color: #a06a10; }
+.dash-badge--order-processing { background: #d9e8f9; color: #2a5f9e; }
+.dash-badge--order-shipped { background: #e6dcf3; color: #6a3d9e; }
+.dash-badge--order-delivered { background: #dcf3e2; color: #1f7a3d; }
+.dash-badge--order-cancelled { background: #f9d9d9; color: #a03030; }
 .dash-badge--refunded { background: #e6dcf3; color: #6a3d9e; }
 
 .dash-filters { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-md); }
@@ -2085,4 +2091,48 @@ h1, h2, h3, h4 { line-height: 1.15; }
   .dash-sidebar__logout { margin-left: auto; }
   .dash-detail-grid { grid-template-columns: 1fr; }
   .dash-main { padding: var(--space-md); }
+}
+
+/* Unified order status (tracking code + stepper) */
+.dash-tracking-code { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 6px; }
+.dash-tracking-code-cell { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.dash-copied-hint { font-size: 11px; color: #1f7a3d; }
+
+.dash-status-stepper { display: flex; align-items: center; gap: 4px; margin: var(--space-md) 0; }
+.dash-status-step { display: flex; align-items: center; gap: 8px; flex: 1; color: var(--muted); font-size: 13px; }
+.dash-status-step__dot { width: 12px; height: 12px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
+.dash-status-step.is-done .dash-status-step__dot { background: var(--deep-pink); }
+.dash-status-step.is-done { color: var(--ink); }
+.dash-status-step.is-current .dash-status-step__dot { box-shadow: 0 0 0 3px var(--blush); }
+.dash-status-step:not(:last-child)::after { content: ''; flex: 1; height: 2px; background: var(--line); margin: 0 4px; }
+.dash-status-step.is-done:not(:last-child)::after { background: var(--deep-pink); }
+
+/* Public track-your-order page */
+.track-page { max-width: 720px; margin: 0 auto; padding: var(--space-2xl) var(--page-pad); }
+.track-page__hero { text-align: center; margin-bottom: var(--space-xl); }
+.track-page__hero h1 { font-family: var(--serif); font-size: 32px; color: var(--ink); margin-bottom: 8px; }
+.track-page__hero p { color: var(--muted); margin-bottom: var(--space-lg); }
+.track-page__form { display: flex; gap: 8px; max-width: 460px; margin: 0 auto; }
+.track-page__form .dash-search-field { flex: 1; border: 1px solid var(--line); }
+
+.track-page__empty { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); padding: var(--space-2xl); text-align: center; }
+.track-page__empty svg { color: var(--pink); }
+
+.track-page__result { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-xl); }
+.track-page__summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin-bottom: var(--space-lg); }
+.track-page__label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.track-page__status { margin-bottom: var(--space-lg); }
+.track-page__status p { margin-top: 8px; color: var(--ink-light); }
+
+.track-page__timeline { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: var(--space-xl); }
+.track-page__timeline li { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+.track-page__timeline li.is-done { color: var(--ink); }
+.track-page__timeline li.is-done svg { color: #1f7a3d; }
+.track-page__timeline-time { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+.track-page__items-title { font-size: 16px; color: var(--ink); margin-bottom: var(--space-sm); }
+
+@media (max-width: 600px) {
+  .track-page__summary { grid-template-columns: 1fr; }
+  .track-page__form { flex-direction: column; }
 }

@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { Check, Search, ShoppingCart, X } from 'lucide-react'
 import products, { formatPrice } from '@/data/products'
 import { ProductVisual } from './ProductVisual'
@@ -139,6 +140,7 @@ export function Footer() {
         <p className="footer-tagline">Premium peptides, skinboosters &amp; research supplies.</p>
       </div>
       <nav className="footer-links" aria-label="Footer navigation">
+        <Link to="/track">Track Your Order</Link>
         <a href="mailto:lovin.glow.ph@gmail.com">Contact</a>
         <a href="#top">Shipping &amp; Returns</a>
         <a href="#top">Privacy Policy</a>

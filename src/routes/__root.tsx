@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { CartDrawer, Footer, Header, Toast } from '@/components/SiteShell'
 import { CheckoutModal } from '@/components/CheckoutModal'
@@ -48,6 +48,9 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isDashboard = pathname.startsWith('/dashboard')
+
   return (
     <html lang="en">
       <head>
@@ -55,12 +58,18 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body>
         <StoreProvider>
-          <Header />
-          <main>{children}</main>
-          <Footer />
-          <CartDrawer />
-          <CheckoutModal />
-          <Toast />
+          {isDashboard ? (
+            <main>{children}</main>
+          ) : (
+            <>
+              <Header />
+              <main>{children}</main>
+              <Footer />
+              <CartDrawer />
+              <CheckoutModal />
+              <Toast />
+            </>
+          )}
         </StoreProvider>
         <Scripts />
       </body>

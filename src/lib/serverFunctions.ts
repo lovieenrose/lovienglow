@@ -6,13 +6,22 @@ import {
   getDashboardAnalytics,
   getInventory,
   getOrder,
+  getOrderByTrackingCode,
   listAllOrdersForExport,
   listOrders,
   updateInventory,
   updateOrder,
   type ListOrdersFilters,
 } from './orders'
-import { sendAdminNotification, sendOrderPacked, sendOrderReceived, sendOrderShipped, sendPaymentConfirmed } from './email'
+import {
+  resendOrderEmail,
+  sendAdminNotification,
+  sendOrderDelivered,
+  sendOrderReceived,
+  sendOrderShipped,
+  sendPaymentConfirmed,
+  type OrderEmailType,
+} from './email'
 import { uploadInvoiceBanner, uploadPaymentProof } from './supabase'
 import {
   adjustProductStock,
@@ -114,8 +123,7 @@ export const verifyOwnerFn = createServerFn({ method: 'GET' }).handler(async () 
 
 const listFiltersSchema = z.object({
   search: z.string().optional(),
-  paymentStatus: z.string().optional(),
-  fulfillmentStatus: z.string().optional(),
+  orderStatus: z.string().optional(),
   courier: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
@@ -136,15 +144,15 @@ export const exportOrdersCsvFn = createServerFn({ method: 'GET' })
     await requireOwner()
     const orders = await listAllOrdersForExport(data as ListOrdersFilters)
     const headers = [
-      'Reference', 'Placed At', 'Full Name', 'Contact Number', 'Email', 'Address', 'Courier', 'Region',
-      'Payment Method', 'Subtotal', 'Shipping Fee', 'Total', 'Payment Status', 'Fulfillment Status', 'Tracking Number',
+      'Reference', 'Tracking Code', 'Placed At', 'Full Name', 'Contact Number', 'Email', 'Address', 'Courier', 'Region',
+      'Payment Method', 'Subtotal', 'Shipping Fee', 'Total', 'Order Status', 'Tracking Number',
     ]
     const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
     const rows = orders.map((order) =>
       [
-        order.reference, order.placed_at, order.full_name, order.contact_number, order.email ?? '',
+        order.reference, order.tracking_code, order.placed_at, order.full_name, order.contact_number, order.email ?? '',
         order.address, order.courier, order.region ?? '', order.payment_method, order.subtotal,
-        order.shipping_fee, order.total, order.payment_status, order.fulfillment_status, order.tracking_number ?? '',
+        order.shipping_fee, order.total, order.order_status, order.tracking_number ?? '',
       ].map(escape).join(','),
     )
     return [headers.join(','), ...rows].join('\n')
@@ -159,10 +167,7 @@ export const getOrderFn = createServerFn({ method: 'GET' })
 
 const updateOrderSchema = z.object({
   reference: z.string(),
-  paymentStatus: z.enum(['pending', 'confirmed', 'rejected', 'refunded']).optional(),
-  fulfillmentStatus: z
-    .enum(['pending', 'processing', 'packed', 'ready_for_pickup', 'shipped', 'delivered', 'completed', 'cancelled'])
-    .optional(),
+  orderStatus: z.enum(['pending_payment', 'processing', 'shipped', 'delivered', 'cancelled']).optional(),
   trackingNumber: z.string().optional(),
   internalNotes: z.string().optional(),
   note: z.string().optional(),
@@ -175,11 +180,33 @@ export const updateOrderStatusFn = createServerFn({ method: 'POST' })
     const { reference, ...patch } = data
     const updated = await updateOrder(reference, patch)
 
-    if (patch.paymentStatus === 'confirmed') await sendPaymentConfirmed(updated)
-    if (patch.fulfillmentStatus === 'packed') await sendOrderPacked(updated)
-    if (patch.fulfillmentStatus === 'shipped') await sendOrderShipped(updated, updated.tracking_number ?? '')
+    // sendOrderReceived fires at checkout (submitOrderFn), not here.
+    if (patch.orderStatus === 'processing') await sendPaymentConfirmed(updated)
+    if (patch.orderStatus === 'shipped') await sendOrderShipped(updated, updated.tracking_number ?? '')
+    if (patch.orderStatus === 'delivered') await sendOrderDelivered(updated)
 
     return getOrder(reference)
+  })
+
+export const trackOrderFn = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ trackingCode: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    return getOrderByTrackingCode(data.trackingCode)
+  })
+
+export const resendOrderEmailFn = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      reference: z.string(),
+      emailType: z.enum(['order_received', 'payment_confirmed', 'packed', 'shipped', 'delivered', 'admin_notification']),
+    }),
+  )
+  .handler(async ({ data }) => {
+    await requireOwner()
+    const order = await getOrder(data.reference)
+    if (!order) throw new Error('Order not found')
+    await resendOrderEmail(order, data.emailType as OrderEmailType)
+    return getOrder(data.reference)
   })
 
 export const getInventoryFn = createServerFn({ method: 'GET' }).handler(async () => {

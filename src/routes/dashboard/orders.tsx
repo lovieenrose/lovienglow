@@ -1,15 +1,15 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Download, Search } from 'lucide-react'
+import { Link, Outlet, createFileRoute, useMatches, useNavigate } from '@tanstack/react-router'
+import { Copy, Download, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { formatPrice } from '@/data/products'
 import { couriers } from '@/data/shipping'
 import { exportOrdersCsvFn, getOrdersFn } from '@/lib/serverFunctions'
-import { fulfillmentLabels, fulfillmentStatusOptions, paymentLabels, paymentStatusOptions } from '@/lib/statusLabels'
+import { orderStatusBadgeClass, orderStatusLabels } from '@/lib/statusLabels'
+import type { OrderStatus } from '@/lib/orders'
 
 interface OrdersSearch {
   search?: string
-  paymentStatus?: string
-  fulfillmentStatus?: string
+  orderStatus?: string
   courier?: string
   page?: number
 }
@@ -17,8 +17,7 @@ interface OrdersSearch {
 export const Route = createFileRoute('/dashboard/orders')({
   validateSearch: (search: Record<string, unknown>): OrdersSearch => ({
     search: typeof search.search === 'string' ? search.search : '',
-    paymentStatus: typeof search.paymentStatus === 'string' ? search.paymentStatus : '',
-    fulfillmentStatus: typeof search.fulfillmentStatus === 'string' ? search.fulfillmentStatus : '',
+    orderStatus: typeof search.orderStatus === 'string' ? search.orderStatus : '',
     courier: typeof search.courier === 'string' ? search.courier : '',
     page: Number(search.page) || 1,
   }),
@@ -27,8 +26,7 @@ export const Route = createFileRoute('/dashboard/orders')({
     getOrdersFn({
       data: {
         search: deps.search || undefined,
-        paymentStatus: deps.paymentStatus || undefined,
-        fulfillmentStatus: deps.fulfillmentStatus || undefined,
+        orderStatus: deps.orderStatus || undefined,
         courier: deps.courier || undefined,
         page: deps.page,
         pageSize: 25,
@@ -39,13 +37,23 @@ export const Route = createFileRoute('/dashboard/orders')({
 
 type SortKey = 'created_at' | 'total' | 'reference'
 
+const ORDER_STATUS_OPTIONS: OrderStatus[] = ['pending_payment', 'processing', 'shipped', 'delivered', 'cancelled']
+
 function OrdersPage() {
+  const matches = useMatches()
+  const hasChildRoute = matches.some((m) => m.routeId === '/dashboard/orders/$ref')
+  if (hasChildRoute) return <Outlet />
+  return <OrdersListView />
+}
+
+function OrdersListView() {
   const search = Route.useSearch()
   const page = search.page ?? 1
   const navigate = useNavigate({ from: Route.fullPath })
   const data = Route.useLoaderData()
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [copiedRef, setCopiedRef] = useState<string | null>(null)
 
   const sortedOrders = useMemo(() => {
     const rows = [...data.orders]
@@ -70,12 +78,17 @@ function OrdersPage() {
     }
   }
 
+  const copyTrackingCode = async (code: string) => {
+    await navigator.clipboard.writeText(code)
+    setCopiedRef(code)
+    setTimeout(() => setCopiedRef(null), 1500)
+  }
+
   const handleExport = async () => {
     const csv = await exportOrdersCsvFn({
       data: {
         search: search.search || undefined,
-        paymentStatus: search.paymentStatus || undefined,
-        fulfillmentStatus: search.fulfillmentStatus || undefined,
+        orderStatus: search.orderStatus || undefined,
         courier: search.courier || undefined,
       },
     })
@@ -103,21 +116,15 @@ function OrdersPage() {
         <div className="dash-search-field">
           <Search size={14} />
           <input
-            placeholder="Search reference, name, phone, email…"
+            placeholder="Search reference, tracking code, name, phone, email…"
             defaultValue={search.search ?? ''}
             onChange={(event) => updateSearch({ search: event.target.value })}
           />
         </div>
-        <select value={search.paymentStatus ?? ''} onChange={(event) => updateSearch({ paymentStatus: event.target.value })}>
-          <option value="">All Payment Statuses</option>
-          {paymentStatusOptions.map((status) => (
-            <option key={status} value={status}>{paymentLabels[status]}</option>
-          ))}
-        </select>
-        <select value={search.fulfillmentStatus ?? ''} onChange={(event) => updateSearch({ fulfillmentStatus: event.target.value })}>
-          <option value="">All Fulfillment Statuses</option>
-          {fulfillmentStatusOptions.map((status) => (
-            <option key={status} value={status}>{fulfillmentLabels[status]}</option>
+        <select value={search.orderStatus ?? ''} onChange={(event) => updateSearch({ orderStatus: event.target.value })}>
+          <option value="">All Statuses</option>
+          {ORDER_STATUS_OPTIONS.map((status) => (
+            <option key={status} value={status}>{orderStatusLabels[status]}</option>
           ))}
         </select>
         <select value={search.courier ?? ''} onChange={(event) => updateSearch({ courier: event.target.value })}>
@@ -133,10 +140,10 @@ function OrdersPage() {
           <thead>
             <tr>
               <th className="is-sortable" onClick={() => toggleSort('reference')}>Reference</th>
+              <th>Tracking Code</th>
               <th>Customer</th>
               <th className="is-sortable" onClick={() => toggleSort('total')}>Total</th>
-              <th>Payment</th>
-              <th>Fulfillment</th>
+              <th>Status</th>
               <th>Courier</th>
               <th className="is-sortable" onClick={() => toggleSort('created_at')}>Placed</th>
             </tr>
@@ -148,10 +155,18 @@ function OrdersPage() {
             {sortedOrders.map((order) => (
               <tr key={order.id}>
                 <td><Link to="/dashboard/orders/$ref" params={{ ref: order.reference }}>{order.reference}</Link></td>
+                <td>
+                  <span className="dash-tracking-code-cell">
+                    {order.tracking_code}
+                    <button className="dash-icon-btn" title="Copy tracking code" onClick={() => copyTrackingCode(order.tracking_code)}>
+                      <Copy size={12} />
+                    </button>
+                    {copiedRef === order.tracking_code && <span className="dash-copied-hint">Copied</span>}
+                  </span>
+                </td>
                 <td>{order.full_name}</td>
                 <td>{formatPrice(order.total)}</td>
-                <td><span className={`dash-badge dash-badge--${order.payment_status}`}>{paymentLabels[order.payment_status]}</span></td>
-                <td><span className={`dash-badge dash-badge--${order.fulfillment_status}`}>{fulfillmentLabels[order.fulfillment_status]}</span></td>
+                <td><span className={`dash-badge ${orderStatusBadgeClass[order.order_status]}`}>{orderStatusLabels[order.order_status]}</span></td>
                 <td>{order.courier === 'lalamove' ? 'Lalamove' : 'J&T Express'}</td>
                 <td>{new Date(order.placed_at).toLocaleDateString('en-PH')}</td>
               </tr>
