@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { CheckCircle2, Circle, Loader2, PackageSearch, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { formatPrice } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
 import { trackOrderFn } from '@/lib/serverFunctions'
 import type { PublicTrackedOrder } from '@/lib/orders'
 import { orderStatusBadgeClass, orderStatusLabels } from '@/lib/statusLabels'

@@ -1,5 +1,5 @@
 import nodemailer, { type Transporter } from 'nodemailer'
-import { formatPrice } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
 import paymentMethods from '@/data/paymentMethods'
 import { shippingRegions } from '@/data/shipping'
 import { hasEmailBeenSent, logEmail, type OrderWithRelations } from './orders'

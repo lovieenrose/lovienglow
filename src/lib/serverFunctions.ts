@@ -3,13 +3,10 @@ import { z } from 'zod'
 import { clearOwnerSession, establishOwnerSession, isOwnerAuthenticated, requireOwner } from './auth'
 import {
   createOrder,
-  getDashboardAnalytics,
-  getInventory,
   getOrder,
   getOrderByTrackingCode,
   listAllOrdersForExport,
   listOrders,
-  updateInventory,
   updateOrder,
   type ListOrdersFilters,
 } from './orders'
@@ -23,6 +20,7 @@ import {
   type OrderEmailType,
 } from './email'
 import { uploadInvoiceBanner, uploadPaymentProof } from './supabase'
+import { listPublicCatalog, redeemPromo, validatePromoCode } from './storefront'
 import {
   adjustProductStock,
   createCategory,
@@ -61,8 +59,26 @@ import { getDashboardMetrics } from './inventory/dashboard'
 
 // ── Storefront ─────────────────────────────────────────────────────────
 
+export const listPublicCatalogFn = createServerFn({ method: 'GET' }).handler(async () => {
+  return listPublicCatalog()
+})
+
+export const validatePromoCodeFn = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      code: z.string().min(1),
+      cartProductIds: z.array(z.string()),
+      subtotal: z.number().min(0),
+      customerEmail: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    return validatePromoCode(data.code, data)
+  })
+
 const orderItemSchema = z.object({
-  productId: z.number(),
+  productId: z.string().optional(),
+  productSetId: z.string().optional(),
   productName: z.string(),
   unitPrice: z.number(),
   quantity: z.number(),
@@ -72,7 +88,7 @@ const orderItemSchema = z.object({
 const submitOrderSchema = z.object({
   fullName: z.string().min(1),
   contactNumber: z.string().min(1),
-  email: z.string(),
+  email: z.string().email(),
   socialHandle: z.string(),
   address: z.string().min(1),
   courier: z.string(),
@@ -81,6 +97,9 @@ const submitOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1),
   subtotal: z.number(),
   shippingFee: z.number(),
+  discount: z.number().min(0).optional(),
+  promoId: z.string().optional(),
+  promoCode: z.string().optional(),
   total: z.number(),
   receiptBase64: z.string().min(1),
   receiptFilename: z.string().min(1),
@@ -90,7 +109,9 @@ const submitOrderSchema = z.object({
 export const submitOrderFn = createServerFn({ method: 'POST' })
   .inputValidator(submitOrderSchema)
   .handler(async ({ data }) => {
-    const order = await createOrder(data)
+    const { promoId, ...orderInput } = data
+    const order = await createOrder({ ...orderInput, discount: data.discount ?? 0 })
+    if (promoId) await redeemPromo(promoId, order.id, data.email || undefined)
     await Promise.all([sendOrderReceived(order), sendAdminNotification(order)])
     return order
   })
@@ -209,23 +230,6 @@ export const resendOrderEmailFn = createServerFn({ method: 'POST' })
     return getOrder(data.reference)
   })
 
-export const getInventoryFn = createServerFn({ method: 'GET' }).handler(async () => {
-  await requireOwner()
-  return getInventory()
-})
-
-export const updateInventoryFn = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ productId: z.number(), stock: z.number(), lowStockThreshold: z.number() }))
-  .handler(async ({ data }) => {
-    await requireOwner()
-    await updateInventory(data.productId, data.stock, data.lowStockThreshold)
-    return { success: true as const }
-  })
-
-export const getDashboardAnalyticsFn = createServerFn({ method: 'GET' }).handler(async () => {
-  await requireOwner()
-  return getDashboardAnalytics()
-})
 
 // ── Business profile ──────────────────────────────────────────────────────
 

@@ -1,10 +1,11 @@
 import { Check, ChevronDown, Minus, Plus, ShieldCheck, ShoppingCart, Truck, X } from 'lucide-react'
 import { useState } from 'react'
-import { formatPrice, type Product } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
+import type { PublicProduct } from '@/data/catalog'
 import { ProductVisual } from './ProductVisual'
 import { useStore } from './Store'
 
-export function ProductModal({ product, onClose }: { product: Product; onClose: () => void }) {
+export function ProductModal({ product, onClose }: { product: PublicProduct; onClose: () => void }) {
   const { addToCart, setCartOpen } = useStore()
   const [variant, setVariant] = useState(product.strength[0])
   const [quantity, setQuantity] = useState(1)

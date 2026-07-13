@@ -1,7 +1,7 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import products from '@/data/products'
-import { submitOrderFn } from '@/lib/serverFunctions'
+import type { PublicProduct } from '@/data/catalog'
+import { listPublicCatalogFn, submitOrderFn, validatePromoCodeFn } from '@/lib/serverFunctions'
 
 export interface BuyerDetails {
   fullName: string
@@ -11,12 +11,21 @@ export interface BuyerDetails {
   address: string
 }
 
+export interface OrderLine {
+  productId?: string
+  productSetId?: string
+  name: string
+  price: number
+  quantity: number
+}
+
 export interface OrderRecord {
   reference: string
   placedAt: string
-  lines: { productId: number; name: string; price: number; quantity: number }[]
+  lines: OrderLine[]
   subtotal: number
   shippingFee: number
+  discount: number
   total: number
   buyer: BuyerDetails
   courier: string
@@ -40,7 +49,8 @@ const ORDER_COUNTER_KEY = 'lng_order_counter'
 
 function generateReference(): string {
   // localStorage is only available in the browser — the SSR pass uses a
-  // static placeholder which is immediately overwritten on the client.
+  // static placeholder which is immediately overwritten on the client. This
+  // is only a display placeholder; the real reference comes from the server.
   if (typeof localStorage === 'undefined') return 'LNG-000000'
   const last = parseInt(localStorage.getItem(ORDER_COUNTER_KEY) ?? '0', 10)
   const next = last + 1
@@ -48,15 +58,37 @@ function generateReference(): string {
   return `LNG-${String(next).padStart(6, '0')}`
 }
 
+// One line per cart entry — bundles ("sets") stay as a single line for the
+// set itself (never exploded into their real component products), so the
+// customer/admin summary only ever shows what's actually on the pricelist.
+function buildOrderLines(cart: Record<string, number>, catalog: PublicProduct[]): OrderLine[] {
+  const lines: OrderLine[] = []
+  for (const [id, quantity] of Object.entries(cart)) {
+    const product = catalog.find((item) => item.id === id)
+    if (!product) continue
+    lines.push({
+      productId: product.isSet ? undefined : product.id,
+      productSetId: product.isSet ? product.id : undefined,
+      name: product.name,
+      price: product.price,
+      quantity,
+    })
+  }
+  return lines
+}
+
 interface StoreContextValue {
-  cart: Record<number, number>
+  catalog: PublicProduct[]
+  catalogLoading: boolean
+
+  cart: Record<string, number>
   cartOpen: boolean
   toast: string
   query: string
   setQuery: (value: string) => void
-  addToCart: (id: number, quantity?: number) => void
-  removeFromCart: (id: number) => void
-  updateQuantity: (id: number, quantity: number) => void
+  addToCart: (id: string, quantity?: number) => void
+  removeFromCart: (id: string) => void
+  updateQuantity: (id: string, quantity: number) => void
   setCartOpen: (open: boolean) => void
 
   checkoutOpen: boolean
@@ -76,6 +108,14 @@ interface StoreContextValue {
   receiptFile: File | null
   setReceiptFile: (file: File | null) => void
 
+  promoCode: string
+  setPromoCode: (code: string) => void
+  promoDiscount: number
+  promoError: string
+  promoApplying: boolean
+  appliedPromoId: string | null
+  applyPromoCode: () => Promise<void>
+
   orderReference: string
   placingOrder: boolean
   lastOrder: OrderRecord | null
@@ -86,7 +126,10 @@ interface StoreContextValue {
 const StoreContext = createContext<StoreContextValue | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<Record<number, number>>({})
+  const [catalog, setCatalog] = useState<PublicProduct[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(true)
+
+  const [cart, setCart] = useState<Record<string, number>>({})
   const [cartOpen, setCartOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [query, setQuery] = useState('')
@@ -102,17 +145,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [lastOrder, setLastOrder] = useState<OrderRecord | null>(null)
   const [orderReference, setOrderReference] = useState(generateReference)
 
+  const [promoCode, setPromoCode] = useState('')
+  const [promoDiscount, setPromoDiscount] = useState(0)
+  const [promoError, setPromoError] = useState('')
+  const [promoApplying, setPromoApplying] = useState(false)
+  const [appliedPromoId, setAppliedPromoId] = useState<string | null>(null)
+
+  useEffect(() => {
+    listPublicCatalogFn()
+      .then((data) => setCatalog(data as PublicProduct[]))
+      .finally(() => setCatalogLoading(false))
+  }, [])
+
   const notify = (message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 2200)
   }
 
-  const addToCart = (id: number, quantity = 1) => {
+  const addToCart = (id: string, quantity = 1) => {
     setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + quantity }))
     notify('Added to cart')
   }
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (id: string) => {
     setCart((current) => {
       const next = { ...current }
       delete next[id]
@@ -120,7 +175,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity < 1) return removeFromCart(id)
     setCart((current) => ({ ...current, [id]: quantity }))
   }
@@ -137,14 +192,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setBuyerField = (field: keyof BuyerDetails, value: string) =>
     setBuyer((current) => ({ ...current, [field]: value }))
 
+  const cartSubtotal = () =>
+    buildOrderLines(cart, catalog).reduce((sum, line) => sum + line.price * line.quantity, 0)
+
+  const applyPromoCode = async () => {
+    if (!promoCode.trim()) return
+    setPromoApplying(true)
+    setPromoError('')
+    try {
+      const cartProductIds = Object.keys(cart)
+      const result = await validatePromoCodeFn({
+        data: { code: promoCode.trim(), cartProductIds, subtotal: cartSubtotal(), customerEmail: buyer.email || undefined },
+      })
+      if (!result.valid) {
+        setPromoDiscount(0)
+        setAppliedPromoId(null)
+        setPromoError(result.message ?? 'Invalid promo code.')
+        return
+      }
+      setPromoDiscount(result.discount)
+      setAppliedPromoId(result.promoId ?? null)
+    } finally {
+      setPromoApplying(false)
+    }
+  }
+
   const placeOrder = async (): Promise<OrderRecord | null> => {
     if (!receiptFile) return null
     setPlacingOrder(true)
     try {
-      const lines = Object.entries(cart).map(([id, quantity]) => {
-        const product = products.find((item) => item.id === Number(id))!
-        return { productId: product.id, name: product.name, price: product.price, quantity }
-      })
+      const lines = buildOrderLines(cart, catalog)
       const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0)
       // Lalamove deliveries are arranged directly with the store — no fee at checkout.
       const shippingFee =
@@ -155,7 +232,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : region === 'mindanao'
               ? 200
               : 120
-      const total = subtotal + shippingFee
+      const total = Math.max(0, subtotal - promoDiscount) + shippingFee
       const receiptBase64 = await fileToBase64(receiptFile)
 
       const saved = await submitOrderFn({
@@ -170,6 +247,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           paymentMethod: paymentMethodId,
           items: lines.map((line) => ({
             productId: line.productId,
+            productSetId: line.productSetId,
             productName: line.name,
             unitPrice: line.price,
             quantity: line.quantity,
@@ -177,6 +255,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           })),
           subtotal,
           shippingFee,
+          discount: promoDiscount,
+          promoId: appliedPromoId ?? undefined,
+          promoCode: appliedPromoId ? promoCode.trim() : undefined,
           total,
           receiptBase64,
           receiptFilename: receiptFile.name,
@@ -190,6 +271,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         lines,
         subtotal: saved.subtotal,
         shippingFee: saved.shipping_fee,
+        discount: saved.discount,
         total: saved.total,
         buyer,
         courier,
@@ -199,6 +281,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setLastOrder(order)
       setCart({})
+      setPromoCode('')
+      setPromoDiscount(0)
+      setAppliedPromoId(null)
       return order
     } finally {
       setPlacingOrder(false)
@@ -220,10 +305,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <StoreContext.Provider
       value={{
+        catalog, catalogLoading,
         cart, cartOpen, toast, query, setQuery, addToCart, removeFromCart, updateQuantity, setCartOpen,
         checkoutOpen, checkoutStep, openCheckout, closeCheckout, goToStep,
         buyer, setBuyerField, courier, setCourier, region, setRegion, paymentMethodId, setPaymentMethodId,
-        receiptFile, setReceiptFile, orderReference, placingOrder, lastOrder, placeOrder, startNewOrder,
+        receiptFile, setReceiptFile,
+        promoCode, setPromoCode, promoDiscount, promoError, promoApplying, appliedPromoId, applyPromoCode,
+        orderReference, placingOrder, lastOrder, placeOrder, startNewOrder,
       }}
     >
       {children}

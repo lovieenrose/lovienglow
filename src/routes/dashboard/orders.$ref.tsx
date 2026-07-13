@@ -1,7 +1,7 @@
 import { Link, createFileRoute, notFound, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, Check, Copy, Download, Maximize2, RotateCcw, XCircle, X } from 'lucide-react'
 import { useState } from 'react'
-import { formatPrice } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
 import paymentMethods from '@/data/paymentMethods'
 import { shippingRegions } from '@/data/shipping'
 import { getOrderFn, resendOrderEmailFn, updateOrderStatusFn } from '@/lib/serverFunctions'

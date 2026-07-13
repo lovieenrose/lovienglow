@@ -1,7 +1,7 @@
 import { Link, Outlet, createFileRoute, useMatches, useNavigate } from '@tanstack/react-router'
 import { Copy, Download, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { formatPrice } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
 import { couriers } from '@/data/shipping'
 import { exportOrdersCsvFn, getOrdersFn } from '@/lib/serverFunctions'
 import { orderStatusBadgeClass, orderStatusLabels } from '@/lib/statusLabels'

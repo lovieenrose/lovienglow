@@ -1,6 +1,6 @@
 import { Check, ImagePlus, Loader2, Minus, Plus, UploadCloud, X } from 'lucide-react'
 import { useRef, useState } from 'react'
-import products, { formatPrice } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
 import paymentMethods from '@/data/paymentMethods'
 import { couriers, shippingRegions } from '@/data/shipping'
 import { useStore, type BuyerDetails } from './Store'
@@ -52,11 +52,10 @@ export function CheckoutModal() {
 }
 
 function useCartLines() {
-  const { cart, updateQuantity, removeFromCart } = useStore()
-  const lines = Object.entries(cart).map(([id, quantity]) => ({
-    product: products.find((item) => item.id === Number(id))!,
-    quantity,
-  }))
+  const { cart, catalog, updateQuantity, removeFromCart } = useStore()
+  const lines = Object.entries(cart)
+    .map(([id, quantity]) => ({ product: catalog.find((item) => item.id === id), quantity }))
+    .filter((line): line is { product: NonNullable<typeof line.product>; quantity: number } => Boolean(line.product))
   const subtotal = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0)
   return { lines, subtotal, updateQuantity, removeFromCart }
 }
@@ -124,14 +123,15 @@ function StepOrder({ onContinue }: { onContinue: () => void }) {
   )
 }
 
-const requiredFields: (keyof BuyerDetails)[] = ['fullName', 'contactNumber', 'address']
+const requiredFields: (keyof BuyerDetails)[] = ['fullName', 'contactNumber', 'email', 'address']
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function StepDetails({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
   const { buyer, setBuyerField, courier, setCourier, region, setRegion } = useStore()
   const [touched, setTouched] = useState(false)
   const selectedRegion = shippingRegions.find((item) => item.id === region) ?? shippingRegions[0]
   const isLalamove = courier === 'lalamove'
-  const valid = requiredFields.every((field) => buyer[field].trim().length > 0)
+  const valid = requiredFields.every((field) => buyer[field].trim().length > 0) && EMAIL_PATTERN.test(buyer.email.trim())
 
   const handleContinue = () => {
     setTouched(true)
@@ -169,15 +169,19 @@ function StepDetails({ onBack, onContinue }: { onBack: () => void; onContinue: (
             <em className="field-error">Contact number is required.</em>
           )}
         </label>
-        <label>
-          <span>Email Address</span>
+        <label className={touched && !EMAIL_PATTERN.test(buyer.email.trim()) ? 'has-error' : ''}>
+          <span>Email Address *</span>
           <input
             type="email"
             value={buyer.email}
             onChange={(event) => setBuyerField('email', event.target.value)}
-            placeholder="you@email.com (optional)"
+            placeholder="you@email.com"
             autoComplete="email"
           />
+          {touched && !buyer.email && <em className="field-error">Email address is required.</em>}
+          {touched && buyer.email && !EMAIL_PATTERN.test(buyer.email.trim()) && (
+            <em className="field-error">Enter a valid email address.</em>
+          )}
         </label>
         <label>
           <span>Discord / Social Handle</span>
@@ -273,6 +277,13 @@ function StepPayment({ onBack }: { onBack: () => void }) {
     orderReference,
     placingOrder,
     placeOrder,
+    promoCode,
+    setPromoCode,
+    promoDiscount,
+    promoError,
+    promoApplying,
+    appliedPromoId,
+    applyPromoCode,
   } = useStore()
   const { lines, subtotal } = useCartLines()
   const [dragOver, setDragOver] = useState(false)
@@ -281,7 +292,7 @@ function StepPayment({ onBack }: { onBack: () => void }) {
   const isLalamove = courier === 'lalamove'
   const selectedRegion = shippingRegions.find((item) => item.id === region) ?? shippingRegions[0]
   const shippingFee = isLalamove ? 0 : selectedRegion.fee
-  const total = subtotal + shippingFee
+  const total = Math.max(0, subtotal - promoDiscount) + shippingFee
   const method = paymentMethods.find((item) => item.id === paymentMethodId)
 
   const handleFile = (file: File | null | undefined) => {
@@ -308,6 +319,12 @@ function StepPayment({ onBack }: { onBack: () => void }) {
           <span>Order Subtotal</span>
           <b>{formatPrice(subtotal)}</b>
         </div>
+        {promoDiscount > 0 && (
+          <div className="summary-line">
+            <span>Discount ({promoCode.trim().toUpperCase()})</span>
+            <b>-{formatPrice(promoDiscount)}</b>
+          </div>
+        )}
         <div className="summary-line">
           {isLalamove ? (
             <>
@@ -326,6 +343,26 @@ function StepPayment({ onBack }: { onBack: () => void }) {
           <b>{formatPrice(total)}</b>
         </div>
       </div>
+
+      <div className="checkout-subhead">Promo Code</div>
+      <div className="promo-row">
+        <input
+          value={promoCode}
+          onChange={(event) => setPromoCode(event.target.value)}
+          placeholder="e.g. FIRSTDAY"
+          disabled={Boolean(appliedPromoId)}
+        />
+        <button
+          type="button"
+          className="button button--outline"
+          onClick={applyPromoCode}
+          disabled={promoApplying || !promoCode.trim() || Boolean(appliedPromoId)}
+        >
+          {promoApplying ? 'Checking…' : appliedPromoId ? 'Applied' : 'Apply'}
+        </button>
+      </div>
+      {promoError && !appliedPromoId && <p className="field-error">{promoError}</p>}
+      {appliedPromoId && <p className="promo-success">Promo applied — you saved {formatPrice(promoDiscount)}!</p>}
 
       {isLalamove && (
         <div className="checkout-notice checkout-notice--lalamove" role="note">
@@ -448,12 +485,18 @@ function OrderConfirmed({ onDone }: { onDone: () => void }) {
       </p>
 
       <div className="order-card order-card--summary">
-        {lastOrder.lines.map((line) => (
-          <div className="summary-line" key={line.productId}>
+        {lastOrder.lines.map((line, i) => (
+          <div className="summary-line" key={`${line.productId}-${i}`}>
             <span>{line.name} × {line.quantity}</span>
             <b>{formatPrice(line.price * line.quantity)}</b>
           </div>
         ))}
+        {lastOrder.discount > 0 && (
+          <div className="summary-line">
+            <span>Discount</span>
+            <b>-{formatPrice(lastOrder.discount)}</b>
+          </div>
+        )}
         <div className="summary-line">
           {isLalamove ? (
             <>

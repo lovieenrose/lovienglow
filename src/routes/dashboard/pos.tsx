@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { Plus, Search, ShoppingCart, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   completeSaleFn,
   getBusinessProfileFn,
@@ -118,6 +118,8 @@ function NewSaleView({
   const [invoiceOrder, setInvoiceOrder] = useState<SalesOrder | null>(null)
   const [showManageSets, setShowManageSets] = useState(false)
   const [showPromoManager, setShowPromoManager] = useState(false)
+  const [productPage, setProductPage] = useState(1)
+  const PRODUCTS_PER_PAGE = 20
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -129,6 +131,16 @@ function NewSaleView({
       return true
     })
   }, [products, search, categoryId])
+
+  useEffect(() => {
+    setProductPage(1)
+  }, [search, categoryId])
+
+  const productPageCount = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE))
+  const pagedProducts = useMemo(
+    () => filteredProducts.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE),
+    [filteredProducts, productPage],
+  )
 
   const filteredSets = useMemo(
     () => productSets.filter((s) => s.name.toLowerCase().includes(setQuery.toLowerCase())),
@@ -274,18 +286,27 @@ function NewSaleView({
                 <div className="pos-set-card" key={set.id} style={{ borderColor: set.color ?? undefined }}>
                   <div className="pos-set-card__head">
                     <span className="pos-set-card__icon" style={{ background: set.color ?? undefined }}>📦</span>
-                    <div>
+                    <div className="pos-set-card__title">
                       <b>{set.name}</b>
-                      <span className="dash-muted"> {set.items.length} items</span>
+                      <span className="dash-muted">{set.items.length} items</span>
                     </div>
                   </div>
                   <ul className="pos-set-card__items">
                     {set.items.slice(0, 2).map((item) => (
                       <li key={item.id}>{item.quantity}× {item.product?.name ?? 'Product'}</li>
                     ))}
-                    {set.items.length > 2 && <li className="dash-muted">+{set.items.length - 2} more</li>}
+                    {set.items.length > 2 && (
+                      <li className="pos-set-card__items-more-wrap">
+                        <span className="pos-set-card__items-more">+{set.items.length - 2} more</span>
+                        <ul className="pos-set-card__items-popover">
+                          {set.items.slice(2).map((item) => (
+                            <li key={item.id}>{item.quantity}× {item.product?.name ?? 'Product'}</li>
+                          ))}
+                        </ul>
+                      </li>
+                    )}
                   </ul>
-                  <button className="button button--outline button--wide" onClick={() => addSet(set)}>
+                  <button className="button button--outline button--wide pos-set-card__add" onClick={() => addSet(set)}>
                     <Plus size={13} /> Quick add
                   </button>
                 </div>
@@ -306,7 +327,7 @@ function NewSaleView({
         </div>
 
         <div className="pos-grid">
-          {filteredProducts.map((product) => (
+          {pagedProducts.map((product) => (
             <button
               key={product.id}
               className="pos-product"
@@ -323,6 +344,27 @@ function NewSaleView({
           ))}
           {filteredProducts.length === 0 && <p className="dash-empty-state">No products match.</p>}
         </div>
+        {filteredProducts.length > PRODUCTS_PER_PAGE && (
+          <div className="pos-pagination">
+            <button
+              type="button"
+              className="button button--outline"
+              disabled={productPage <= 1}
+              onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <span className="pos-pagination__label">Page {productPage} of {productPageCount}</span>
+            <button
+              type="button"
+              className="button button--outline"
+              disabled={productPage >= productPageCount}
+              onClick={() => setProductPage((p) => Math.min(productPageCount, p + 1))}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="pos-cart">

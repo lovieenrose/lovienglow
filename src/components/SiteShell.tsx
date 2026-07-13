@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Check, Search, ShoppingCart, X } from 'lucide-react'
-import products, { formatPrice } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
 import { ProductVisual } from './ProductVisual'
 import { useStore } from './Store'
 
@@ -48,11 +48,10 @@ export function Header() {
 }
 
 export function CartDrawer() {
-  const { cart, cartOpen, setCartOpen, updateQuantity, removeFromCart, openCheckout } = useStore()
-  const lines = Object.entries(cart).map(([id, quantity]) => ({
-    product: products.find((item) => item.id === Number(id))!,
-    quantity,
-  }))
+  const { cart, catalog, cartOpen, setCartOpen, updateQuantity, removeFromCart, openCheckout } = useStore()
+  const lines = Object.entries(cart)
+    .map(([id, quantity]) => ({ product: catalog.find((item) => item.id === id), quantity }))
+    .filter((line): line is { product: NonNullable<typeof line.product>; quantity: number } => Boolean(line.product))
   const subtotal = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0)
 
   return (

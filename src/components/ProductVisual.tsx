@@ -1,7 +1,7 @@
-import type { Product } from '@/data/products'
+import type { PublicProduct } from '@/data/catalog'
 import type { CSSProperties } from 'react'
 
-export function ProductVisual({ product, compact = false }: { product: Product; compact?: boolean }) {
+export function ProductVisual({ product, compact = false }: { product: PublicProduct; compact?: boolean }) {
   return (
     <div
       className={`product-visual product-visual--${product.form} ${compact ? 'product-visual--compact' : ''}`}

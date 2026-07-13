@@ -1,21 +1,21 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import products, { categories } from '@/data/products'
+import { PUBLIC_CATEGORIES as categories } from '@/data/catalog'
 import { ProductCard } from '@/components/ProductCard'
 import { useStore } from '@/components/Store'
 
 export const Route = createFileRoute('/')({ component: ShopPage })
 
 function ShopPage() {
-  const { query, setQuery } = useStore()
+  const { query, setQuery, catalog, catalogLoading } = useStore()
   const [category, setCategory] = useState('All')
   const [sort, setSort] = useState('featured')
   const [visible, setVisible] = useState(12)
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase()
-    return [...products]
+    return [...catalog]
       .filter((product) => category === 'All' || product.category === category)
       .filter((product) =>
         `${product.name} ${product.shortDescription} ${product.category}`.toLowerCase().includes(normalized)
@@ -28,7 +28,7 @@ function ShopPage() {
         if (sort === 'name') return first.name.localeCompare(second.name)
         return Number(second.isBestSeller) - Number(first.isBestSeller)
       })
-  }, [category, query, sort])
+  }, [catalog, category, query, sort])
 
   return (
     <div className="catalog-page" id="top">
@@ -91,7 +91,11 @@ function ShopPage() {
         </span>
       </div>
 
-      {filtered.length ? (
+      {catalogLoading && catalog.length === 0 ? (
+        <div className="empty-results">
+          <p>Loading products…</p>
+        </div>
+      ) : filtered.length ? (
         <>
           <div className="product-grid catalog-grid">
             {filtered.slice(0, visible).map((product) => (

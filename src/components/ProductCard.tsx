@@ -1,11 +1,12 @@
-import { Eye, Plus, ShoppingCart, Star } from 'lucide-react'
+import { Eye, Plus, Star } from 'lucide-react'
 import { useState } from 'react'
-import { formatPrice, type Product } from '@/data/products'
+import { formatPrice } from '@/lib/currency'
+import type { PublicProduct } from '@/data/catalog'
 import { ProductVisual } from './ProductVisual'
 import { ProductModal } from './ProductModal'
 import { useStore } from './Store'
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product }: { product: PublicProduct }) {
   const { addToCart } = useStore()
   const [open, setOpen] = useState(false)
 

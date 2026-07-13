@@ -1,5 +1,4 @@
 import { getSupabaseAdmin, uploadReceipt } from './supabase'
-import products from '@/data/products'
 
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected' | 'refunded'
 export type FulfillmentStatus =
@@ -27,7 +26,12 @@ const LEGACY_STATUS_BY_ORDER_STATUS: Record<OrderStatus, { paymentStatus: Paymen
 }
 
 export interface OrderItemInput {
-  productId: number
+  // Exactly one of productId/productSetId is set — bundles ("sets") are
+  // recorded as a single line referencing the set, not exploded into their
+  // real component products, so the customer/admin summary only ever shows
+  // what's actually on the pricelist.
+  productId?: string
+  productSetId?: string
   productName: string
   unitPrice: number
   quantity: number
@@ -46,6 +50,8 @@ export interface CreateOrderInput {
   items: OrderItemInput[]
   subtotal: number
   shippingFee: number
+  discount: number
+  promoCode?: string
   total: number
   receiptBase64: string
   receiptFilename: string
@@ -68,6 +74,8 @@ export interface OrderRow {
   receipt_filename: string | null
   subtotal: number
   shipping_fee: number
+  discount: number
+  promo_code: string | null
   total: number
   payment_status: PaymentStatus
   fulfillment_status: FulfillmentStatus
@@ -82,7 +90,8 @@ export interface OrderRow {
 export interface OrderItemRow {
   id: string
   order_id: string
-  product_id: number
+  product_id: string | null
+  product_set_id: string | null
   product_name: string
   unit_price: number
   quantity: number
@@ -158,6 +167,8 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithRel
       receipt_filename: input.receiptFilename,
       subtotal: input.subtotal,
       shipping_fee: input.shippingFee,
+      discount: input.discount,
+      promo_code: input.promoCode || null,
       total: input.total,
     })
     .select()
@@ -171,7 +182,8 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithRel
     .insert(
       input.items.map((item) => ({
         order_id: orderRow.id,
-        product_id: item.productId,
+        product_id: item.productId ?? null,
+        product_set_id: item.productSetId ?? null,
         product_name: item.productName,
         unit_price: item.unitPrice,
         quantity: item.quantity,
@@ -181,26 +193,10 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithRel
     .select()
   if (itemsError) throw itemsError
 
-  await decrementInventory(input.items)
+  // Stock is not deducted here — it's reserved against real inventory only
+  // once staff confirms fulfillment (Sales/POS "Complete Sale", Phase 2).
 
   return { ...orderRow, items: (items as OrderItemRow[]) ?? [], history: [], emails: [] }
-}
-
-export async function decrementInventory(items: OrderItemInput[]) {
-  const supabase = getSupabaseAdmin()
-  for (const item of items) {
-    const { data: current } = await supabase
-      .from('product_inventory')
-      .select('stock')
-      .eq('product_id', item.productId)
-      .maybeSingle()
-    if (!current) continue
-    const nextStock = Math.max(0, (current as { stock: number }).stock - item.quantity)
-    await supabase
-      .from('product_inventory')
-      .update({ stock: nextStock, updated_at: new Date().toISOString() })
-      .eq('product_id', item.productId)
-  }
 }
 
 export async function getOrder(reference: string): Promise<OrderWithRelations | null> {
@@ -405,85 +401,3 @@ export async function hasEmailBeenSent(orderId: string, emailType: string): Prom
   return (count ?? 0) > 0
 }
 
-export interface InventoryRow {
-  product_id: number
-  product_name: string
-  stock: number
-  low_stock_threshold: number
-  updated_at: string
-}
-
-export async function getInventory(): Promise<InventoryRow[]> {
-  const supabase = getSupabaseAdmin()
-  const { data, error } = await supabase.from('product_inventory').select().order('product_id', { ascending: true })
-  if (error) throw error
-  const nameById = new Map(products.map((product) => [product.id, product.name]))
-  return ((data as Array<Omit<InventoryRow, 'product_name'>>) ?? []).map((row) => ({
-    ...row,
-    product_name: nameById.get(row.product_id) ?? `Product #${row.product_id}`,
-  }))
-}
-
-export async function updateInventory(productId: number, stock: number, lowStockThreshold: number) {
-  const supabase = getSupabaseAdmin()
-  const { error } = await supabase
-    .from('product_inventory')
-    .update({ stock, low_stock_threshold: lowStockThreshold, updated_at: new Date().toISOString() })
-    .eq('product_id', productId)
-  if (error) throw error
-}
-
-export interface DashboardAnalytics {
-  todayOrders: number
-  todayRevenue: number
-  pendingPayments: number
-  pendingFulfillments: number
-  lowStockCount: number
-  outOfStockCount: number
-  topProduct: { name: string; units: number } | null
-  recentOrders: OrderRow[]
-}
-
-export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
-  const supabase = getSupabaseAdmin()
-  const startOfDay = new Date()
-  startOfDay.setHours(0, 0, 0, 0)
-
-  const [{ data: todayOrders }, { count: pendingPayments }, { count: pendingFulfillments }, { data: inventory }, { data: recentOrders }] =
-    await Promise.all([
-      supabase.from('orders').select('total').gte('created_at', startOfDay.toISOString()),
-      supabase.from('orders').select('id', { count: 'exact', head: true }).eq('payment_status', 'pending'),
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .in('fulfillment_status', ['pending', 'processing', 'packed', 'ready_for_pickup']),
-      supabase.from('product_inventory').select(),
-      supabase.from('orders').select().order('created_at', { ascending: false }).limit(10),
-    ])
-
-  const todayOrderRows = (todayOrders as Array<{ total: number }>) ?? []
-  const inventoryRows = (inventory as Array<{ product_id: number; stock: number; low_stock_threshold: number }>) ?? []
-
-  const { data: topLines } = await supabase
-    .from('order_items')
-    .select('product_id, product_name, quantity')
-  const unitsByProduct = new Map<string, number>()
-  for (const line of (topLines as Array<{ product_name: string; quantity: number }>) ?? []) {
-    unitsByProduct.set(line.product_name, (unitsByProduct.get(line.product_name) ?? 0) + line.quantity)
-  }
-  let topProduct: DashboardAnalytics['topProduct'] = null
-  for (const [name, units] of unitsByProduct) {
-    if (!topProduct || units > topProduct.units) topProduct = { name, units }
-  }
-
-  return {
-    todayOrders: todayOrderRows.length,
-    todayRevenue: todayOrderRows.reduce((sum, row) => sum + Number(row.total), 0),
-    pendingPayments: pendingPayments ?? 0,
-    pendingFulfillments: pendingFulfillments ?? 0,
-    lowStockCount: inventoryRows.filter((row) => row.stock > 0 && row.stock <= row.low_stock_threshold).length,
-    outOfStockCount: inventoryRows.filter((row) => row.stock === 0).length,
-    topProduct,
-    recentOrders: (recentOrders as OrderRow[]) ?? [],
-  }
-}
