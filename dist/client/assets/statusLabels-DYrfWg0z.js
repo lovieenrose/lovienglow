@@ -1,1 +1,0 @@
-const e={pending:"Pending Validation",confirmed:"Payment Confirmed",rejected:"Payment Rejected",refunded:"Refunded"},n={pending:"Pending",processing:"Processing",packed:"Packed",ready_for_pickup:"Ready for Pickup",shipped:"Shipped",delivered:"Delivered",completed:"Completed",cancelled:"Cancelled"},d=Object.keys(e),t=Object.keys(n);export{d as a,t as b,n as f,e as p};

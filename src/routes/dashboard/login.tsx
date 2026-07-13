@@ -1,28 +1,67 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Loader2, Lock } from 'lucide-react'
 import { useState } from 'react'
-import { adminLoginFn } from '@/lib/serverFunctions'
+import { ownerEstablishSessionFn } from '@/lib/serverFunctions'
+import { getSupabaseBrowserClient } from '@/lib/supabaseClient'
 
 export const Route = createFileRoute('/dashboard/login')({ component: LoginPage })
 
 function LoginPage() {
   const navigate = useNavigate()
+  const [mode, setMode] = useState<'sign_in' | 'sign_up'>('sign_in')
+  const [businessName, setBusinessName] = useState('')
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
+    setNotice('')
     setLoading(true)
     try {
-      const result = await adminLoginFn({ data: { email, password } })
-      if (!result.success) {
+      const supabase = getSupabaseBrowserClient()
+
+      if (mode === 'sign_up') {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { business_name: businessName, full_name: fullName } },
+        })
+        if (signUpError) {
+          setError(signUpError.message)
+          setLoading(false)
+          return
+        }
+        if (!data.session) {
+          setNotice('Account created. Check your email to confirm, then sign in.')
+          setMode('sign_in')
+          setLoading(false)
+          return
+        }
+        await ownerEstablishSessionFn({
+          data: {
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token,
+            fallbackName: businessName || fullName,
+          },
+        })
+        navigate({ to: '/dashboard' })
+        return
+      }
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError || !data.session) {
         setError('Invalid email or password.')
         setLoading(false)
         return
       }
+      await ownerEstablishSessionFn({
+        data: { accessToken: data.session.access_token, refreshToken: data.session.refresh_token },
+      })
       navigate({ to: '/dashboard' })
     } catch {
       setError('Something went wrong. Please try again.')
@@ -37,7 +76,26 @@ function LoginPage() {
           <Lock size={20} />
         </div>
         <h1>LovieNGlow Admin</h1>
-        <p>Sign in to manage orders.</p>
+        <p>{mode === 'sign_in' ? 'Sign in to manage your business.' : 'Create your business account.'}</p>
+
+        {mode === 'sign_up' && (
+          <>
+            <label>
+              <span>Business Name</span>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(event) => setBusinessName(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <span>Your Full Name</span>
+              <input type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
+            </label>
+          </>
+        )}
+
         <label>
           <span>Email</span>
           <input
@@ -54,13 +112,37 @@ function LoginPage() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
+            autoComplete={mode === 'sign_in' ? 'current-password' : 'new-password'}
+            minLength={6}
             required
           />
         </label>
+
         {error && <p className="dash-login__error">{error}</p>}
+        {notice && <p className="dash-login__notice">{notice}</p>}
+
         <button className="button button--dark button--wide" type="submit" disabled={loading}>
-          {loading ? <><Loader2 className="spin" size={14} /> Signing in…</> : 'Sign In'}
+          {loading ? (
+            <>
+              <Loader2 className="spin" size={14} /> {mode === 'sign_in' ? 'Signing in…' : 'Creating account…'}
+            </>
+          ) : mode === 'sign_in' ? (
+            'Sign In'
+          ) : (
+            'Create Account'
+          )}
+        </button>
+
+        <button
+          type="button"
+          className="dash-login__switch"
+          onClick={() => {
+            setMode(mode === 'sign_in' ? 'sign_up' : 'sign_in')
+            setError('')
+            setNotice('')
+          }}
+        >
+          {mode === 'sign_in' ? "Don't have a business account? Sign up" : 'Already have an account? Sign in'}
         </button>
       </form>
     </div>

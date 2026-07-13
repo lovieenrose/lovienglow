@@ -1,6 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ComingSoon } from '@/components/ComingSoon'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dashboard/products')({
-  component: () => <ComingSoon title="Products" description="Full product CRUD is coming in a future update." />,
+  beforeLoad: () => {
+    throw redirect({ to: '/dashboard/inventory' })
+  },
 })

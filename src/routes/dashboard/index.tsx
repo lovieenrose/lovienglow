@@ -1,27 +1,85 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { AlertTriangle, Clock, PackageCheck, TrendingUp, Wallet } from 'lucide-react'
-import { formatPrice } from '@/data/products'
-import { getDashboardAnalyticsFn } from '@/lib/serverFunctions'
-import { fulfillmentLabels, paymentLabels } from '@/lib/statusLabels'
+import { createFileRoute } from '@tanstack/react-router'
+import { AlertTriangle, Clock, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { getDashboardMetricsFn } from '@/lib/serverFunctions'
+import type { DashboardMetrics, DateRangeKey } from '@/lib/inventory/types'
 
 export const Route = createFileRoute('/dashboard/')({
-  loader: () => getDashboardAnalyticsFn(),
+  loader: () => getDashboardMetricsFn({ data: { range: '30d' } }),
   component: DashboardHome,
 })
 
+const RANGES: Array<{ key: DateRangeKey; label: string }> = [
+  { key: '7d', label: '7 Days' },
+  { key: '30d', label: '30 Days' },
+  { key: '90d', label: '90 Days' },
+  { key: '12m', label: '12 Months' },
+]
+
+const DONUT_COLORS = ['#c8546f', '#e5a3b3', '#8a3b52', '#f0c9d2', '#a06a10', '#6a3d9e', '#2a5f9e']
+
+function formatPeso(value: number): string {
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value)
+}
+
 function DashboardHome() {
-  const data = Route.useLoaderData()
+  const initial = Route.useLoaderData()
+  const [range, setRange] = useState<DateRangeKey>('30d')
+  const [data, setData] = useState<DashboardMetrics>(initial)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    getDashboardMetricsFn({ data: { range } }).then((result) => {
+      if (!cancelled) {
+        setData(result)
+        setLoading(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [range])
 
   const cards = [
-    { label: "Today's Orders", value: data.todayOrders, icon: TrendingUp },
-    { label: "Today's Revenue", value: formatPrice(data.todayRevenue), icon: Wallet },
-    { label: 'Pending Payments', value: data.pendingPayments, icon: Clock },
-    { label: 'Pending Fulfillments', value: data.pendingFulfillments, icon: PackageCheck },
+    { label: 'Total Revenue', value: formatPeso(data.totalRevenue), icon: Wallet },
+    { label: 'Total COGS', value: formatPeso(data.totalCogs), icon: Wallet },
+    { label: 'Gross Profit', value: formatPeso(data.grossProfit), icon: TrendingUp },
+    { label: 'Total Expenses', value: formatPeso(data.totalExpenses), icon: TrendingDown },
+    { label: 'Net Profit', value: formatPeso(data.netProfit), icon: data.netProfit >= 0 ? TrendingUp : TrendingDown },
+    { label: 'Inventory Value', value: formatPeso(data.inventoryValue), icon: Wallet },
+    { label: 'Total Orders', value: String(data.totalOrders), icon: Clock },
+    { label: 'Pending Deliveries', value: String(data.pendingDeliveries), icon: Clock },
   ]
 
+  const maxTrend = Math.max(1, ...data.salesTrend.map((d) => d.revenue))
+  const totalExpense = data.expenseBreakdown.reduce((sum, e) => sum + e.amount, 0) || 1
+  let cumulative = 0
+  const donutStops = data.expenseBreakdown.map((entry, i) => {
+    const start = (cumulative / totalExpense) * 360
+    cumulative += entry.amount
+    const end = (cumulative / totalExpense) * 360
+    return `${DONUT_COLORS[i % DONUT_COLORS.length]} ${start}deg ${end}deg`
+  })
+
   return (
-    <div className="dash-page">
-      <h1 className="dash-page__title">Dashboard</h1>
+    <div className="dash-page" style={{ opacity: loading ? 0.7 : 1 }}>
+      <div className="dash-toolbar">
+        <h1 className="dash-page__title">Dashboard</h1>
+        <div className="dash-range-tabs">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              className={`dash-range-tab ${range === r.key ? 'is-active' : ''}`}
+              onClick={() => setRange(r.key)}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="dash-cards">
         {cards.map((card) => {
@@ -42,57 +100,110 @@ function DashboardHome() {
         <div className="dash-card dash-card--warn">
           <div className="dash-card__icon"><AlertTriangle size={18} /></div>
           <div>
-            <span className="dash-card__label">Low Stock Items</span>
-            <b className="dash-card__value">{data.lowStockCount}</b>
-          </div>
-        </div>
-        <div className="dash-card dash-card--danger">
-          <div className="dash-card__icon"><AlertTriangle size={18} /></div>
-          <div>
-            <span className="dash-card__label">Out of Stock Items</span>
-            <b className="dash-card__value">{data.outOfStockCount}</b>
-          </div>
-        </div>
-        <div className="dash-card">
-          <div className="dash-card__icon"><TrendingUp size={18} /></div>
-          <div>
-            <span className="dash-card__label">Top Selling Product</span>
-            <b className="dash-card__value">
-              {data.topProduct ? `${data.topProduct.name} (${data.topProduct.units} units)` : '—'}
-            </b>
+            <span className="dash-card__label">Low Stock Alerts</span>
+            <b className="dash-card__value">{data.lowStock.count}</b>
           </div>
         </div>
       </div>
 
-      <h2 className="dash-section-title">Recent Orders</h2>
-      <div className="dash-table-wrap">
-        <table className="dash-table">
-          <thead>
-            <tr>
-              <th>Reference</th>
-              <th>Customer</th>
-              <th>Total</th>
-              <th>Payment</th>
-              <th>Fulfillment</th>
-              <th>Placed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.recentOrders.length === 0 && (
-              <tr><td colSpan={6} className="dash-table__empty">No orders yet.</td></tr>
-            )}
-            {data.recentOrders.map((order) => (
-              <tr key={order.id}>
-                <td><Link to="/dashboard/orders/$ref" params={{ ref: order.reference }}>{order.reference}</Link></td>
-                <td>{order.full_name}</td>
-                <td>{formatPrice(order.total)}</td>
-                <td><span className={`dash-badge dash-badge--${order.payment_status}`}>{paymentLabels[order.payment_status]}</span></td>
-                <td><span className={`dash-badge dash-badge--${order.fulfillment_status}`}>{fulfillmentLabels[order.fulfillment_status]}</span></td>
-                <td>{new Date(order.placed_at).toLocaleDateString('en-PH')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="dash-chart-grid">
+        <div className="dash-chart-panel">
+          <h2>Sales Trend</h2>
+          {data.salesTrend.length === 0 ? (
+            <p className="dash-empty-state">No sales in this range.</p>
+          ) : (
+            <>
+              <div className="dash-bar-chart">
+                {data.salesTrend.map((d) => (
+                  <div className="dash-bar-chart__col" key={d.date}>
+                    <div
+                      className="dash-bar-chart__bar dash-bar-chart__bar--profit"
+                      style={{ height: `${Math.max(2, (Math.max(0, d.profit) / maxTrend) * 100)}%` }}
+                      title={`Profit: ${formatPeso(d.profit)}`}
+                    />
+                    <div
+                      className="dash-bar-chart__bar"
+                      style={{ height: `${Math.max(2, (d.revenue / maxTrend) * 100)}%` }}
+                      title={`Revenue: ${formatPeso(d.revenue)}`}
+                    />
+                    <span className="dash-bar-chart__label">
+                      {new Date(d.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="dash-bar-chart__legend">
+                <span><i className="dash-bar-chart__swatch" style={{ background: 'var(--pink)' }} /> Revenue</span>
+                <span><i className="dash-bar-chart__swatch" style={{ background: 'var(--deep-pink)' }} /> Profit</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="dash-chart-panel">
+          <h2>Top Products</h2>
+          {data.topProducts.length === 0 ? (
+            <p className="dash-empty-state">No sales yet.</p>
+          ) : (
+            <div className="dash-top-products">
+              {data.topProducts.map((p, i) => (
+                <div className="dash-top-product" key={p.productId ?? p.name}>
+                  <span className="dash-top-product__rank">{i + 1}</span>
+                  <span className="dash-top-product__name">{p.name}</span>
+                  <span className="dash-top-product__meta">{p.unitsSold} sold · {formatPeso(p.profit)} profit</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="dash-chart-grid">
+        <div className="dash-chart-panel">
+          <h2>Expense Breakdown</h2>
+          {data.expenseBreakdown.length === 0 ? (
+            <p className="dash-empty-state">No expenses recorded in this range.</p>
+          ) : (
+            <div className="dash-donut">
+              <div className="dash-donut__ring" style={{ background: `conic-gradient(${donutStops.join(', ')})` }} />
+              <ul className="dash-donut__legend">
+                {data.expenseBreakdown.map((entry, i) => (
+                  <li key={entry.category}>
+                    <span className="dash-donut__legend-label">
+                      <i className="dash-donut__swatch" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                      {entry.category}
+                    </span>
+                    <span>{formatPeso(entry.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="dash-chart-panel">
+          <h2>Low Stock Items</h2>
+          {data.lowStock.items.length === 0 ? (
+            <p className="dash-empty-state">Everything is well stocked.</p>
+          ) : (
+            <div className="dash-table-wrap" style={{ border: 'none' }}>
+              <table className="dash-table">
+                <thead>
+                  <tr><th>Product</th><th>Stock</th><th>Reorder Level</th></tr>
+                </thead>
+                <tbody>
+                  {data.lowStock.items.map((item) => (
+                    <tr key={item.id} className="dash-row-warn">
+                      <td>{item.name}</td>
+                      <td>{item.stock_quantity}</td>
+                      <td>{item.reorder_level}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

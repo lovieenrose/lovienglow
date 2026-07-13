@@ -1,0 +1,1 @@
+import{j as o}from"./index-D-pIIoMp.js";import{C as t}from"./ComingSoon-DtIBfEBO.js";const i=()=>o.jsx(t,{title:"Customers",description:"A customer database is coming in a future update."});export{i as component};

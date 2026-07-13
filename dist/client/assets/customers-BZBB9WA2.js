@@ -1,1 +1,0 @@
-import{j as o}from"./index-BEldBtxt.js";import{C as t}from"./ComingSoon-Bt7y0vu8.js";const i=()=>o.jsx(t,{title:"Customers",description:"A customer database is coming in a future update."});export{i as component};

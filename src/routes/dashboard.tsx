@@ -4,12 +4,15 @@ import {
   Boxes,
   LogOut,
   Mail,
-  Package,
+  PackagePlus,
+  Receipt,
   Settings,
   ShoppingBag,
+  ShoppingCart,
   Users,
 } from 'lucide-react'
-import { adminLogoutFn, verifyAdminFn } from '@/lib/serverFunctions'
+import { ownerLogoutFn, verifyOwnerFn } from '@/lib/serverFunctions'
+import { getSupabaseBrowserClient } from '@/lib/supabaseClient'
 
 export const Route = createFileRoute('/dashboard')({
   head: () => ({
@@ -17,7 +20,7 @@ export const Route = createFileRoute('/dashboard')({
   }),
   beforeLoad: async ({ location }) => {
     if (location.pathname === '/dashboard/login') return
-    const { valid } = await verifyAdminFn()
+    const { valid } = await verifyOwnerFn()
     if (!valid) throw redirect({ to: '/dashboard/login' })
   },
   component: DashboardLayout,
@@ -25,9 +28,11 @@ export const Route = createFileRoute('/dashboard')({
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: BarChart3, exact: true },
-  { to: '/dashboard/orders', label: 'Orders', icon: ShoppingBag },
+  { to: '/dashboard/pos', label: 'Sales (POS)', icon: ShoppingCart },
+  { to: '/dashboard/incoming-stock', label: 'Incoming Stock', icon: PackagePlus },
   { to: '/dashboard/inventory', label: 'Inventory', icon: Boxes },
-  { to: '/dashboard/products', label: 'Products', icon: Package },
+  { to: '/dashboard/expenses', label: 'Expenses', icon: Receipt },
+  { to: '/dashboard/orders', label: 'Store Orders', icon: ShoppingBag },
   { to: '/dashboard/customers', label: 'Customers', icon: Users },
   { to: '/dashboard/emails', label: 'Emails', icon: Mail },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },
@@ -42,7 +47,8 @@ function DashboardLayout() {
   }
 
   const handleLogout = async () => {
-    await adminLogoutFn()
+    await getSupabaseBrowserClient().auth.signOut()
+    await ownerLogoutFn()
     navigate({ to: '/dashboard/login' })
   }
 
