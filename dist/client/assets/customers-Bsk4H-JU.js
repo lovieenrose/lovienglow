@@ -1,0 +1,1 @@
+import{j as o}from"./index-CFXhyco2.js";import{C as t}from"./ComingSoon-D5zQr4Co.js";const i=()=>o.jsx(t,{title:"Customers",description:"A customer database is coming in a future update."});export{i as component};

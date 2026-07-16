@@ -42,4 +42,13 @@ export interface PublicProduct {
   // the public catalog at all — this is what checkout expands each bundle
   // line into, and it must always resolve to a real name and price.
   setItems?: Array<{ productId: string; name: string; price: number; quantity: number }>
+  // Real uploaded photo(s), preferred over the generated `ProductVisual` art
+  // when present. `image` is the single inventory photo; `gallery` is the
+  // storefront-only photo set (gallery[0] is the primary thumbnail).
+  image?: string
+  gallery?: string[]
+  // Computed from the admin's visibility/status-override settings — never
+  // reflects a real database write, just how the item should render publicly.
+  purchasable: boolean
+  badge?: 'out_of_stock' | 'coming_soon' | 'discontinued'
 }

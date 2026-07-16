@@ -46,6 +46,7 @@ export interface Product {
   unit: string
   image_url: string | null
   description: string | null
+  storefront_meta: Record<string, any> | null
   created_at: string
   updated_at: string
   category?: Pick<Category, 'id' | 'name'> | null

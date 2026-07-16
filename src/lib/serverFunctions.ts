@@ -19,7 +19,7 @@ import {
   sendPaymentConfirmed,
   type OrderEmailType,
 } from './email'
-import { uploadInvoiceBanner, uploadPaymentProof } from './supabase'
+import { uploadInvoiceBanner, uploadPaymentProof, uploadProductImage } from './supabase'
 import { listPublicCatalog, redeemPromo, validatePromoCode } from './storefront'
 import {
   adjustProductStock,
@@ -334,6 +334,7 @@ const productInputSchema = z.object({
   unit: z.string().optional(),
   image_url: z.string().optional(),
   description: z.string().optional(),
+  storefront_meta: z.record(z.string(), z.any()).nullable().optional(),
 })
 
 export const createProductFn = createServerFn({ method: 'POST' })
@@ -563,6 +564,14 @@ export const uploadInvoiceBannerFn = createServerFn({ method: 'POST' })
     const ctx = await requireOwner()
     const url = await uploadInvoiceBanner(data.filename, data.contentType, base64ToBytes(data.base64))
     return updateBusinessProfile(ctx, { invoice_banner_url: url })
+  })
+
+export const uploadProductImageFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ filename: z.string().min(1), contentType: z.string().min(1), base64: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    const url = await uploadProductImage(ctx.ownerId, data.filename, data.contentType, base64ToBytes(data.base64))
+    return { url }
   })
 
 // ── Promo codes ───────────────────────────────────────────────────────────

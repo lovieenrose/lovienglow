@@ -84,7 +84,11 @@ export function CartDrawer() {
             <div className="cart-lines">
               {lines.map(({ product, quantity }) => (
                 <div className="cart-line" key={product.id}>
-                  <ProductVisual product={product} compact />
+                  {product.gallery?.[0] ?? product.image ? (
+                    <img src={product.gallery?.[0] ?? product.image} alt={product.name} className="cart-line__photo" />
+                  ) : (
+                    <ProductVisual product={product} compact />
+                  )}
                   <div className="cart-line__info">
                     <h3>{product.name}</h3>
                     <p className="cart-line__variant">{product.strength[0]}</p>

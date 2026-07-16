@@ -155,9 +155,14 @@ function CreatePurchaseOrderModal({
   const [items, setItems] = useState<Array<{ product_id: string; quantity_ordered: number; unit_cost: number }>>([])
   const [saving, setSaving] = useState(false)
 
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })),
+    [products],
+  )
+
   const addItem = () => {
-    if (products.length === 0) return
-    setItems([...items, { product_id: products[0].id, quantity_ordered: 1, unit_cost: products[0].cost_price }])
+    if (sortedProducts.length === 0) return
+    setItems([...items, { product_id: sortedProducts[0].id, quantity_ordered: 1, unit_cost: sortedProducts[0].cost_price }])
   }
 
   const total = items.reduce((s, i) => s + i.quantity_ordered * i.unit_cost, 0) + handlingFee + shippingFee
@@ -220,7 +225,7 @@ function CreatePurchaseOrderModal({
                 <select value={item.product_id} onChange={(e) => {
                   const next = [...items]; next[i] = { ...item, product_id: e.target.value }; setItems(next)
                 }}>
-                  {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {sortedProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <input type="number" min={1} placeholder="Qty" value={item.quantity_ordered} onChange={(e) => {
                   const next = [...items]; next[i] = { ...item, quantity_ordered: Number(e.target.value) }; setItems(next)

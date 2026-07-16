@@ -5,11 +5,18 @@ import type { PublicProduct } from '@/data/catalog'
 import { ProductVisual } from './ProductVisual'
 import { useStore } from './Store'
 
+const BADGE_LABEL: Record<NonNullable<PublicProduct['badge']>, string> = {
+  out_of_stock: 'Out of Stock',
+  coming_soon: 'Coming Soon',
+  discontinued: 'Discontinued',
+}
+
 export function ProductModal({ product, onClose }: { product: PublicProduct; onClose: () => void }) {
   const { addToCart, setCartOpen } = useStore()
   const [variant, setVariant] = useState(product.strength[0])
   const [quantity, setQuantity] = useState(1)
   const [image, setImage] = useState(0)
+  const gallery = product.gallery && product.gallery.length > 0 ? product.gallery : undefined
 
   const handleAddToCart = () => {
     addToCart(product.id, quantity)
@@ -33,19 +40,19 @@ export function ProductModal({ product, onClose }: { product: PublicProduct; onC
         <div className="product-modal__scroll">
           <div className="gallery">
             <div className="gallery-thumbs">
-              {[0, 1, 2].map((item) => (
+              {(gallery ?? [0, 1, 2]).map((item, i) => (
                 <button
-                  key={item}
-                  className={image === item ? 'active' : ''}
-                  onClick={() => setImage(item)}
-                  aria-label={`View image ${item + 1}`}
+                  key={gallery ? item : i}
+                  className={image === i ? 'active' : ''}
+                  onClick={() => setImage(i)}
+                  aria-label={`View image ${i + 1}`}
                 >
-                  <ProductVisual product={product} compact />
+                  {gallery ? <img src={gallery[i]} alt={`${product.name} ${i + 1}`} /> : <ProductVisual product={product} compact />}
                 </button>
               ))}
             </div>
             <div className={`gallery-main gallery-main--${image}`}>
-              <ProductVisual product={product} />
+              {gallery ? <img src={gallery[image] ?? gallery[0]} alt={product.name} className="gallery-main__photo" /> : <ProductVisual product={product} />}
             </div>
           </div>
 
@@ -58,15 +65,23 @@ export function ProductModal({ product, onClose }: { product: PublicProduct; onC
               <span>{product.reviews} reviews</span>
             </div>
             <div className="detail-price">
-              <b>{formatPrice(product.price)}</b>
-              {product.compareAt && <del>{formatPrice(product.compareAt)}</del>}
+              {product.badge === 'coming_soon' ? (
+                <b>Price available soon</b>
+              ) : (
+                <>
+                  <b>{formatPrice(product.price)}</b>
+                  {product.compareAt && <del>{formatPrice(product.compareAt)}</del>}
+                </>
+              )}
             </div>
             <p className="detail-description">{product.description}</p>
             <div className="stock">
               <i />
-              {product.stock < 15
-                ? `Only ${product.stock} left — order soon`
-                : 'In stock and ready to ship'}
+              {product.badge
+                ? BADGE_LABEL[product.badge]
+                : product.stock < 15
+                  ? `Only ${product.stock} left — order soon`
+                  : 'In stock and ready to ship'}
             </div>
 
             <div className="variant-picker">
@@ -88,17 +103,6 @@ export function ProductModal({ product, onClose }: { product: PublicProduct; onC
                 ))}
               </div>
             </div>
-
-            {product.benefits.length > 0 && (
-              <ul className="modal-benefits">
-                {product.benefits.map((benefit) => (
-                  <li key={benefit}>
-                    <Check size={12} />
-                    {benefit}
-                  </li>
-                ))}
-              </ul>
-            )}
 
             {product.included && (
               <div className="modal-included">
@@ -137,14 +141,16 @@ export function ProductModal({ product, onClose }: { product: PublicProduct; onC
                 className="button button--dark"
                 onClick={handleAddToCart}
                 id={`modal-add-to-cart-${product.id}`}
+                disabled={!product.purchasable}
               >
-                <ShoppingCart size={15} /> Add to Cart
+                <ShoppingCart size={15} /> {product.badge ? BADGE_LABEL[product.badge] : 'Add to Cart'}
               </button>
             </div>
             <button
               className="button button--pink button--wide"
               onClick={handleBuyNow}
               id={`modal-buy-now-${product.id}`}
+              disabled={!product.purchasable}
             >
               Buy Now
             </button>

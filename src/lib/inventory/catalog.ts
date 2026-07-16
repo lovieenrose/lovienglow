@@ -165,6 +165,7 @@ export interface ProductInput {
   unit?: string
   image_url?: string
   description?: string
+  storefront_meta?: Record<string, any> | null
 }
 
 export async function createProduct(ctx: OwnerContext, input: ProductInput): Promise<Product> {

@@ -75,3 +75,29 @@ export async function uploadInvoiceBanner(filename: string, contentType: string,
   const { data } = supabase.storage.from(BANNERS_BUCKET).getPublicUrl(path)
   return data.publicUrl
 }
+
+const PRODUCT_IMAGES_BUCKET = 'product-images'
+let productImagesBucketEnsured = false
+
+async function ensureProductImagesBucket() {
+  if (productImagesBucketEnsured) return
+  const supabase = getSupabaseAdmin()
+  const { data } = await supabase.storage.getBucket(PRODUCT_IMAGES_BUCKET)
+  if (!data) {
+    await supabase.storage.createBucket(PRODUCT_IMAGES_BUCKET, { public: true })
+  }
+  productImagesBucketEnsured = true
+}
+
+export async function uploadProductImage(ownerId: string, filename: string, contentType: string, bytes: Uint8Array) {
+  await ensureProductImagesBucket()
+  const supabase = getSupabaseAdmin()
+  const path = `${ownerId}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const { error } = await supabase.storage.from(PRODUCT_IMAGES_BUCKET).upload(path, bytes, {
+    contentType,
+    upsert: false,
+  })
+  if (error) throw error
+  const { data } = supabase.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(path)
+  return data.publicUrl
+}

@@ -1,0 +1,1 @@
+import{j as o}from"./index-CFXhyco2.js";import{C as i}from"./ComingSoon-D5zQr4Co.js";const n=()=>o.jsx(i,{title:"Emails",description:"A full email history view is coming in a future update."});export{n as component};

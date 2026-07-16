@@ -25,8 +25,7 @@ function ShopPage() {
         if (sort === 'best') return second.reviews - first.reviews
         if (sort === 'price-low') return first.price - second.price
         if (sort === 'price-high') return second.price - first.price
-        if (sort === 'name') return first.name.localeCompare(second.name)
-        return Number(second.isBestSeller) - Number(first.isBestSeller)
+        return first.name.localeCompare(second.name, undefined, { numeric: true, sensitivity: 'base' })
       })
   }, [catalog, category, query, sort])
 

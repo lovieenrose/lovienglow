@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { Minus, Package, Plus, Search, Settings2, SlidersHorizontal, Pencil, Trash2, X } from 'lucide-react'
+import { Download, Minus, Package, Plus, Search, Settings2, SlidersHorizontal, Pencil, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   adjustProductStockFn,
@@ -18,6 +18,8 @@ import {
   updateProductFn,
 } from '@/lib/serverFunctions'
 import type { Category, Product, ProductSet, Supplier } from '@/lib/inventory/types'
+import { ImageUploaderGallery, ImageUploaderSingle } from '@/components/ImageUploader'
+import { ExportInventoryModal } from '@/components/inventory/ExportInventoryModal'
 
 export const Route = createFileRoute('/dashboard/inventory')({
   loader: async () => {
@@ -54,18 +56,21 @@ function InventoryPage() {
   const [modalProduct, setModalProduct] = useState<Product | 'new' | null>(null)
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null)
   const [showCatalogModal, setShowCatalogModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   const visible = useMemo(() => {
-    return data.products.filter((p) => {
-      if (categoryId && p.category_id !== categoryId) return false
-      if (lowStockOnly && p.stock_quantity > p.reorder_level) return false
-      if (search) {
-        const term = search.toLowerCase()
-        const match = p.name.toLowerCase().includes(term) || (p.sku ?? '').toLowerCase().includes(term) || (p.barcode ?? '').toLowerCase().includes(term)
-        if (!match) return false
-      }
-      return true
-    })
+    return data.products
+      .filter((p) => {
+        if (categoryId && p.category_id !== categoryId) return false
+        if (lowStockOnly && p.stock_quantity > p.reorder_level) return false
+        if (search) {
+          const term = search.toLowerCase()
+          const match = p.name.toLowerCase().includes(term) || (p.sku ?? '').toLowerCase().includes(term) || (p.barcode ?? '').toLowerCase().includes(term)
+          if (!match) return false
+        }
+        return true
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
   }, [data.products, search, categoryId, lowStockOnly])
 
   const removeProduct = async (product: Product) => {
@@ -82,6 +87,9 @@ function InventoryPage() {
           <p>Manage products, stock levels, categories, and suppliers</p>
         </div>
         <div className="dash-toolbar__actions">
+          <button className="button button--outline" onClick={() => setShowExportModal(true)}>
+            <Download size={14} /> Export
+          </button>
           <button className="button button--outline" onClick={() => setShowCatalogModal(true)}>
             <Settings2 size={14} /> Categories &amp; Suppliers
           </button>
@@ -198,6 +206,10 @@ function InventoryPage() {
           onClose={() => setShowCatalogModal(false)}
         />
       )}
+
+      {showExportModal && (
+        <ExportInventoryModal products={data.products} onClose={() => setShowExportModal(false)} />
+      )}
     </div>
   )
 }
@@ -231,6 +243,22 @@ function ProductModal({
     image_url: product?.image_url ?? '',
     description: product?.description ?? '',
   })
+  const storefrontMeta = product?.storefront_meta as
+    | {
+        gallery?: string[]
+        visibility?: 'visible' | 'hidden'
+        statusOverride?: 'auto' | 'out_of_stock' | 'coming_soon' | 'discontinued'
+        shortDescription?: string
+        [key: string]: unknown
+      }
+    | null
+    | undefined
+  const [gallery, setGallery] = useState<string[]>(storefrontMeta?.gallery ?? [])
+  const [visibility, setVisibility] = useState<'visible' | 'hidden'>(storefrontMeta?.visibility ?? 'visible')
+  const [statusOverride, setStatusOverride] = useState<'auto' | 'out_of_stock' | 'coming_soon' | 'discontinued'>(
+    storefrontMeta?.statusOverride ?? 'auto',
+  )
+  const [shortDescription, setShortDescription] = useState(storefrontMeta?.shortDescription ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -239,10 +267,17 @@ function ProductModal({
     setSaving(true)
     setError('')
     try {
-      const payload = {
+      const payload: Omit<typeof form, 'category_id' | 'supplier_id'> & {
+        category_id: string | null
+        supplier_id: string | null
+        storefront_meta?: Record<string, any>
+      } = {
         ...form,
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
+      }
+      if (storefrontMeta) {
+        payload.storefront_meta = { ...storefrontMeta, gallery, visibility, statusOverride, shortDescription }
       }
       if (product) {
         const { stock_quantity: _stock, ...editablePayload } = payload
@@ -267,6 +302,10 @@ function ProductModal({
         </div>
         <div className="dash-modal__body">
           <div className="dash-form-grid">
+            <label className="dash-field dash-field--span2">
+              <span>Inventory image</span>
+              <ImageUploaderSingle value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} />
+            </label>
             <label className="dash-field dash-field--span2">
               <span>Product name *</span>
               <input required placeholder="e.g. Ceramic Mug" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -323,10 +362,6 @@ function ProductModal({
               <span>Unit</span>
               <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
             </label>
-            <label className="dash-field">
-              <span>Image URL</span>
-              <input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
-            </label>
             <label className="dash-field dash-field--span2">
               <span>Description</span>
               <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -337,6 +372,47 @@ function ProductModal({
               Stock quantity is locked here — use "Adjust Stock" for manual corrections so every change stays audited.
             </p>
           )}
+
+          {storefrontMeta ? (
+            <>
+              <div className="dash-section-divider">Public Website Media</div>
+              <ImageUploaderGallery value={gallery} onChange={setGallery} />
+              <label className="dash-field">
+                <span>Public website description</span>
+                <textarea
+                  value={shortDescription}
+                  placeholder="Short customer-facing description shown on the storefront product card and details view"
+                  onChange={(e) => setShortDescription(e.target.value)}
+                />
+              </label>
+
+              <div className="dash-section-divider">Storefront Settings</div>
+              <div className="dash-form-grid">
+                <label className="dash-field">
+                  <span>Visibility</span>
+                  <select value={visibility} onChange={(e) => setVisibility(e.target.value as typeof visibility)}>
+                    <option value="visible">Visible</option>
+                    <option value="hidden">Hidden</option>
+                  </select>
+                </label>
+                <label className="dash-field">
+                  <span>Status override</span>
+                  <select value={statusOverride} onChange={(e) => setStatusOverride(e.target.value as typeof statusOverride)}>
+                    <option value="auto">Automatic (based on stock)</option>
+                    <option value="out_of_stock">Force Out of Stock</option>
+                    <option value="coming_soon">Force Coming Soon</option>
+                    <option value="discontinued">Force Discontinued</option>
+                  </select>
+                </label>
+              </div>
+              <p className="dash-field__hint">
+                These settings only affect the public storefront display — they never change real stock, cost, or pricing data.
+              </p>
+            </>
+          ) : (
+            <p className="dash-field__hint">This product isn't listed on the public storefront, so media and display overrides aren't available.</p>
+          )}
+
           {error && <p className="dash-login__error">{error}</p>}
         </div>
         <div className="dash-modal__footer">
@@ -586,9 +662,14 @@ function ProductSetModal({
   const [items, setItems] = useState<Array<{ product_id: string; quantity: number }>>([])
   const [saving, setSaving] = useState(false)
 
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })),
+    [products],
+  )
+
   const addItem = () => {
-    if (products.length === 0) return
-    setItems([...items, { product_id: products[0].id, quantity: 1 }])
+    if (sortedProducts.length === 0) return
+    setItems([...items, { product_id: sortedProducts[0].id, quantity: 1 }])
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -618,7 +699,7 @@ function ProductSetModal({
                 <select value={item.product_id} onChange={(e) => {
                   const next = [...items]; next[i] = { ...item, product_id: e.target.value }; setItems(next)
                 }}>
-                  {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {sortedProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <input type="number" min={1} value={item.quantity} onChange={(e) => {
                   const next = [...items]; next[i] = { ...item, quantity: Number(e.target.value) }; setItems(next)

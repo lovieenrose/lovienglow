@@ -77,7 +77,11 @@ function StepOrder({ onContinue }: { onContinue: () => void }) {
         ) : (
           lines.map(({ product, quantity }) => (
             <div className="order-line" key={product.id}>
-              <ProductVisual product={product} compact />
+              {product.gallery?.[0] ?? product.image ? (
+                <img src={product.gallery?.[0] ?? product.image} alt={product.name} className="cart-line__photo" />
+              ) : (
+                <ProductVisual product={product} compact />
+              )}
               <div className="order-line__info">
                 <h3>{product.name}</h3>
                 <span>{formatPrice(product.price)} each</span>

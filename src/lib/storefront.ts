@@ -21,6 +21,33 @@ interface StorefrontMeta {
   // Bundles are priced at a discount to the sum of their parts — when set,
   // this overrides the computed component-sum price for product_sets.
   fixedPrice?: number
+  // Admin-controlled public display fields — never affect real inventory data.
+  gallery?: string[]
+  visibility?: 'visible' | 'hidden'
+  statusOverride?: 'auto' | 'out_of_stock' | 'coming_soon' | 'discontinued'
+}
+
+// Applies the admin's visibility/status-override settings to a real stock
+// count, without ever touching the database. Returns null when the item
+// should be dropped from the public catalog entirely.
+function applyDisplayOverrides(
+  meta: StorefrontMeta,
+  realStock: number,
+): { stock: number; purchasable: boolean; badge?: PublicProduct['badge'] } | null {
+  if (meta.visibility === 'hidden') return null
+
+  switch (meta.statusOverride) {
+    case 'out_of_stock':
+      return { stock: 0, purchasable: false, badge: 'out_of_stock' }
+    case 'coming_soon':
+      return { stock: realStock, purchasable: false, badge: 'coming_soon' }
+    case 'discontinued':
+      return { stock: realStock, purchasable: false, badge: 'discontinued' }
+    default:
+      return realStock > 0
+        ? { stock: realStock, purchasable: true }
+        : { stock: 0, purchasable: false, badge: 'out_of_stock' }
+  }
 }
 
 export async function listPublicCatalog(): Promise<PublicProduct[]> {
@@ -29,7 +56,7 @@ export async function listPublicCatalog(): Promise<PublicProduct[]> {
   const [{ data: products, error: productsError }, { data: sets, error: setsError }] = await Promise.all([
     supabase
       .from('products')
-      .select('id, name, description, selling_price, stock_quantity, storefront_meta')
+      .select('id, name, description, selling_price, stock_quantity, image_url, storefront_meta')
       .eq('owner_id', STOREFRONT_OWNER_ID)
       .not('storefront_meta', 'is', null),
     supabase
@@ -43,8 +70,10 @@ export async function listPublicCatalog(): Promise<PublicProduct[]> {
 
   const catalog: PublicProduct[] = []
 
-  for (const row of (products as Array<{ id: string; name: string; description: string | null; selling_price: number; stock_quantity: number; storefront_meta: StorefrontMeta }>) ?? []) {
+  for (const row of (products as Array<{ id: string; name: string; description: string | null; selling_price: number; stock_quantity: number; image_url: string | null; storefront_meta: StorefrontMeta }>) ?? []) {
     const meta = row.storefront_meta
+    const display = applyDisplayOverrides(meta, row.stock_quantity)
+    if (!display) continue
     catalog.push({
       id: row.id,
       slug: meta.slug,
@@ -54,7 +83,9 @@ export async function listPublicCatalog(): Promise<PublicProduct[]> {
       description: row.description ?? '',
       shortDescription: meta.shortDescription,
       price: row.selling_price,
-      stock: row.stock_quantity,
+      stock: display.stock,
+      purchasable: display.purchasable,
+      badge: display.badge,
       rating: meta.rating,
       reviews: meta.reviews,
       isNew: meta.isNew,
@@ -63,6 +94,8 @@ export async function listPublicCatalog(): Promise<PublicProduct[]> {
       benefits: meta.benefits,
       palette: meta.palette,
       form: meta.form,
+      image: row.image_url ?? undefined,
+      gallery: meta.gallery,
     })
   }
 
@@ -84,6 +117,9 @@ export async function listPublicCatalog(): Promise<PublicProduct[]> {
       return Math.min(min, available)
     }, Infinity)
     const included = row.items.map((item) => `${item.quantity}× ${resolveProduct(item.product)?.name ?? 'Component'}`)
+    const realStock = Number.isFinite(stock) ? stock : 0
+    const display = applyDisplayOverrides(meta, realStock)
+    if (!display) continue
 
     catalog.push({
       id: row.id,
@@ -95,7 +131,9 @@ export async function listPublicCatalog(): Promise<PublicProduct[]> {
       shortDescription: meta.shortDescription,
       price,
       compareAt: meta.fixedPrice && componentSum > meta.fixedPrice ? componentSum : undefined,
-      stock: Number.isFinite(stock) ? stock : 0,
+      stock: display.stock,
+      purchasable: display.purchasable,
+      badge: display.badge,
       rating: meta.rating,
       reviews: meta.reviews,
       isNew: meta.isNew,
@@ -106,6 +144,7 @@ export async function listPublicCatalog(): Promise<PublicProduct[]> {
       palette: meta.palette,
       form: 'set',
       isSet: true,
+      gallery: meta.gallery,
       setItems: row.items.map((item) => ({
         productId: item.product_id,
         name: resolveProduct(item.product)?.name ?? 'Component',

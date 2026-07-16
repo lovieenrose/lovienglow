@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   createProductSetFn,
   deleteProductSetFn,
@@ -41,6 +41,11 @@ export function ManageProductSetsModal({
   const sorted = [...productSets].sort((a, b) => a.sort_order - b.sort_order)
   const visible = sorted.filter((s) => s.name.toLowerCase().includes(filter.toLowerCase()))
 
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })),
+    [products],
+  )
+
   const startEdit = (set: ProductSet) => {
     setForm({
       id: set.id,
@@ -72,8 +77,8 @@ export function ManageProductSetsModal({
   }
 
   const addItem = () => {
-    if (products.length === 0) return
-    setForm((f) => ({ ...f, items: [...f.items, { product_id: products[0].id, quantity: 1 }] }))
+    if (sortedProducts.length === 0) return
+    setForm((f) => ({ ...f, items: [...f.items, { product_id: sortedProducts[0].id, quantity: 1 }] }))
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -164,7 +169,7 @@ export function ManageProductSetsModal({
                     <select value={item.product_id} onChange={(e) => {
                       const next = [...form.items]; next[i] = { ...item, product_id: e.target.value }; setForm({ ...form, items: next })
                     }}>
-                      {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      {sortedProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                     <input type="number" min={1} value={item.quantity} onChange={(e) => {
                       const next = [...form.items]; next[i] = { ...item, quantity: Number(e.target.value) }; setForm({ ...form, items: next })
