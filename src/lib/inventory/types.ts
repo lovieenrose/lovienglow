@@ -154,6 +154,7 @@ export interface SalesOrder {
   payment_method: string
   status: SalesOrderStatus
   receipt_url: string | null
+  receipt_number: string | null
   paid_at: string | null
   created_at: string
   updated_at: string

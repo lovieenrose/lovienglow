@@ -16,6 +16,7 @@ import {
 import type { BusinessProfile, Category, Product, ProductSet, Promo, SalesOrder } from '@/lib/inventory/types'
 import { InvoiceModal } from '@/components/pos/InvoiceModal'
 import { ManageProductSetsModal } from '@/components/pos/ManageProductSetsModal'
+import { OfficialReceiptModal } from '@/components/pos/OfficialReceiptModal'
 import { PromoManagerModal } from '@/components/pos/PromoManagerModal'
 import { SaleDetailsModal } from '@/components/pos/SaleDetailsModal'
 
@@ -570,6 +571,7 @@ function HistoryView({
 }) {
   const [detailsOrder, setDetailsOrder] = useState<SalesOrder | null>(null)
   const [invoiceOrder, setInvoiceOrder] = useState<SalesOrder | null>(null)
+  const [receiptOrder, setReceiptOrder] = useState<SalesOrder | null>(null)
 
   const reverse = async (order: SalesOrder) => {
     if (!confirm(`Reverse order ${order.order_number}? This restores stock and cannot be undone.`)) return
@@ -618,6 +620,9 @@ function HistoryView({
                 <div className="dash-row-actions">
                   <button className="dash-link-btn" onClick={() => setDetailsOrder(order)}>Details</button>
                   <button className="dash-link-btn" onClick={() => setInvoiceOrder(order)}>Invoice</button>
+                  {order.status === 'paid' && (
+                    <button className="dash-link-btn" onClick={() => setReceiptOrder(order)}>Official Receipt</button>
+                  )}
                   {order.status !== 'reversed' ? (
                     <button className="dash-link-btn dash-link-btn--danger" onClick={() => reverse(order)}>Reverse</button>
                   ) : (
@@ -633,6 +638,9 @@ function HistoryView({
       {detailsOrder && <SaleDetailsModal order={detailsOrder} onClose={() => setDetailsOrder(null)} />}
       {invoiceOrder && (
         <InvoiceModal order={invoiceOrder} businessProfile={businessProfile} onClose={() => setInvoiceOrder(null)} onChanged={setInvoiceOrder} />
+      )}
+      {receiptOrder && (
+        <OfficialReceiptModal order={receiptOrder} businessProfile={businessProfile} onClose={() => setReceiptOrder(null)} />
       )}
     </div>
   )

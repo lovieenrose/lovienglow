@@ -1,4 +1,4 @@
-import { Download, Image as ImageIcon, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Download, FileCheck, Image as ImageIcon, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/lib/serverFunctions'
 import type { BusinessProfile, InvoiceLineItem, SalesOrder } from '@/lib/inventory/types'
 import { formatPeso } from '@/routes/dashboard/pos'
+import { OfficialReceiptModal } from './OfficialReceiptModal'
 
 function itemizedDefault(order: SalesOrder): InvoiceLineItem[] {
   return (order.items ?? []).map((item) => ({
@@ -311,6 +312,7 @@ export function InvoiceModal({
   const [uploadingProof, setUploadingProof] = useState(false)
   const [marking, setMarking] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [showReceipt, setShowReceipt] = useState(false)
   const [error, setError] = useState('')
 
   const displayItems = order.invoice_items && order.invoice_items.length > 0 ? order.invoice_items : itemizedDefault(order)
@@ -455,9 +457,19 @@ export function InvoiceModal({
                 {marking ? 'Saving…' : 'Mark as Paid'}
               </button>
             )}
+
+            {order.status === 'paid' && (
+              <button className="button button--outline button--wide" onClick={() => setShowReceipt(true)}>
+                <FileCheck size={14} /> Download Official Receipt
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {showReceipt && (
+        <OfficialReceiptModal order={order} businessProfile={businessProfile} onClose={() => setShowReceipt(false)} />
+      )}
     </div>
   )
 }
