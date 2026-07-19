@@ -1,5 +1,5 @@
 import type { OwnerContext } from '@/lib/auth'
-import type { BusinessProfile, Category, Product, ProductSet, Supplier } from './types'
+import type { BusinessProfile, Category, Product, ProductBatch, ProductSet, Supplier } from './types'
 
 // ── business_profiles ────────────────────────────────────────────────────
 
@@ -149,7 +149,26 @@ export async function listProducts(ctx: OwnerContext): Promise<Product[]> {
     .eq('owner_id', ctx.ownerId)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data as Product[]) ?? []
+
+  const productRows = (data as Product[]) ?? []
+  if (productRows.length === 0) return []
+
+  const { data: batches, error: batchesError } = await ctx.supabase
+    .from('product_batches')
+    .select('*')
+    .eq('owner_id', ctx.ownerId)
+    .in('product_id', productRows.map((p) => p.id))
+    .order('created_at', { ascending: true })
+  if (batchesError) throw batchesError
+
+  const batchesByProduct = new Map<string, ProductBatch[]>()
+  for (const batch of (batches as ProductBatch[]) ?? []) {
+    const list = batchesByProduct.get(batch.product_id) ?? []
+    list.push(batch)
+    batchesByProduct.set(batch.product_id, list)
+  }
+
+  return productRows.map((p) => ({ ...p, batches: batchesByProduct.get(p.id) ?? [] }))
 }
 
 export interface ProductInput {
@@ -238,6 +257,137 @@ export async function adjustProductStock(
   }
 
   return data as Product
+}
+
+// ── product_batches (batch/lot tracking) ─────────────────────────────────
+// A product with zero batch rows keeps the legacy single-count behavior.
+// The moment it has one or more batches, products.stock_quantity is kept in
+// sync automatically by a DB trigger (see product_batches_migration.sql) —
+// these functions never need to touch products.stock_quantity themselves.
+
+export interface ProductBatchInput {
+  batch_name: string
+  quantity: number
+  cost_price: number
+  expiration_date?: string | null
+}
+
+async function currentStockQuantity(ctx: OwnerContext, productId: string): Promise<number> {
+  const { data, error } = await ctx.supabase
+    .from('products')
+    .select('stock_quantity')
+    .eq('id', productId)
+    .eq('owner_id', ctx.ownerId)
+    .single()
+  if (error) throw error
+  return (data as { stock_quantity: number }).stock_quantity
+}
+
+export async function listProductBatches(ctx: OwnerContext, productId: string): Promise<ProductBatch[]> {
+  const { data, error } = await ctx.supabase
+    .from('product_batches')
+    .select('*')
+    .eq('owner_id', ctx.ownerId)
+    .eq('product_id', productId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data as ProductBatch[]) ?? []
+}
+
+export async function createProductBatch(
+  ctx: OwnerContext,
+  productId: string,
+  input: ProductBatchInput,
+): Promise<ProductBatch> {
+  const { data, error } = await ctx.supabase
+    .from('product_batches')
+    .insert({
+      owner_id: ctx.ownerId,
+      product_id: productId,
+      batch_name: input.batch_name,
+      quantity: input.quantity,
+      cost_price: input.cost_price,
+      expiration_date: input.expiration_date ?? null,
+    })
+    .select('*')
+    .single()
+  if (error) throw error
+  const batch = data as ProductBatch
+
+  await ctx.supabase.from('stock_adjustments').insert({
+    owner_id: ctx.ownerId,
+    product_id: productId,
+    change: input.quantity,
+    resulting_qty: await currentStockQuantity(ctx, productId),
+    reason: `Added batch "${input.batch_name}"`,
+    source: 'batch',
+    source_id: batch.id,
+  })
+
+  return batch
+}
+
+export async function updateProductBatch(
+  ctx: OwnerContext,
+  id: string,
+  patch: Partial<ProductBatchInput>,
+): Promise<ProductBatch> {
+  const { data: before, error: beforeError } = await ctx.supabase
+    .from('product_batches')
+    .select('*')
+    .eq('id', id)
+    .eq('owner_id', ctx.ownerId)
+    .single()
+  if (beforeError) throw beforeError
+  const previous = before as ProductBatch
+
+  const { data, error } = await ctx.supabase
+    .from('product_batches')
+    .update(patch)
+    .eq('id', id)
+    .eq('owner_id', ctx.ownerId)
+    .select('*')
+    .single()
+  if (error) throw error
+  const updated = data as ProductBatch
+
+  if (patch.quantity !== undefined && patch.quantity !== previous.quantity) {
+    await ctx.supabase.from('stock_adjustments').insert({
+      owner_id: ctx.ownerId,
+      product_id: updated.product_id,
+      change: patch.quantity - previous.quantity,
+      resulting_qty: await currentStockQuantity(ctx, updated.product_id),
+      reason: `Adjusted batch "${updated.batch_name}"`,
+      source: 'batch',
+      source_id: updated.id,
+    })
+  }
+
+  return updated
+}
+
+export async function deleteProductBatch(ctx: OwnerContext, id: string): Promise<void> {
+  const { data: before, error: beforeError } = await ctx.supabase
+    .from('product_batches')
+    .select('*')
+    .eq('id', id)
+    .eq('owner_id', ctx.ownerId)
+    .single()
+  if (beforeError) throw beforeError
+  const previous = before as ProductBatch
+
+  const { error } = await ctx.supabase.from('product_batches').delete().eq('id', id).eq('owner_id', ctx.ownerId)
+  if (error) throw error
+
+  await ctx.supabase.from('stock_adjustments').insert({
+    owner_id: ctx.ownerId,
+    product_id: previous.product_id,
+    change: -previous.quantity,
+    resulting_qty: await currentStockQuantity(ctx, previous.product_id),
+    reason: `Removed batch "${previous.batch_name}"`,
+    source: 'batch',
+    source_id: previous.id,
+  })
 }
 
 // ── product_sets / product_set_items ─────────────────────────────────────
@@ -342,12 +492,11 @@ export async function updateProductSet(ctx: OwnerContext, id: string, input: Pro
   return refreshed
 }
 
-// Swaps sort_order with the adjacent set for the ↑/↓ reorder controls.
-export async function swapProductSetOrder(ctx: OwnerContext, a: { id: string; sort_order: number }, b: { id: string; sort_order: number }): Promise<void> {
-  const { error: errorA } = await ctx.supabase.from('product_sets').update({ sort_order: b.sort_order }).eq('id', a.id).eq('owner_id', ctx.ownerId)
-  if (errorA) throw errorA
-  const { error: errorB } = await ctx.supabase.from('product_sets').update({ sort_order: a.sort_order }).eq('id', b.id).eq('owner_id', ctx.ownerId)
-  if (errorB) throw errorB
+// Assigns sort_order = array position for every id, atomically, via the
+// reorder_product_sets RPC (see supabase/reorder_product_sets_migration.sql).
+export async function reorderProductSets(ctx: OwnerContext, orderedIds: string[]): Promise<void> {
+  const { error } = await ctx.supabase.rpc('reorder_product_sets', { p_ids: orderedIds })
+  if (error) throw error
 }
 
 export async function deleteProductSet(ctx: OwnerContext, id: string): Promise<void> {

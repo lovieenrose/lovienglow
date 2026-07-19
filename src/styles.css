@@ -1931,11 +1931,39 @@ h1, h2, h3, h4 { line-height: 1.15; }
 }
 .dash-icon-btn:hover { border-color: var(--pink); color: var(--deep-pink); }
 .dash-icon-btn--danger:hover { border-color: #e3b3b3; color: #a03030; }
+.dash-icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+.dash-icon-btn:disabled:hover { border-color: var(--line); color: var(--ink-light); }
 .dash-row-actions { display: flex; gap: 6px; }
 
 .dash-badge--stock-ok { background: #dcf3e2; color: #1f7a3d; }
 .dash-badge--stock-low { background: #fdeecb; color: #a06a10; }
 .dash-badge--stock-out { background: #f9d9d9; color: #a03030; }
+
+/* Batch/lot tracking */
+.dash-batch-subrow td { background: var(--blush); white-space: normal; }
+.dash-batch-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-left: 18px; font-size: 13px; }
+.dash-batch-section { display: flex; flex-direction: column; gap: 10px; }
+.dash-batch-row-head {
+  display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .03em; padding: 0 2px;
+}
+.dash-batch-row-head > span:nth-child(1) { flex: 2 1 160px; }
+.dash-batch-row-head > span:nth-child(2) { flex: 1 1 80px; }
+.dash-batch-row-head > span:nth-child(3) { flex: 1 1 100px; }
+.dash-batch-row-head > span:nth-child(4) { flex: 1 1 130px; }
+.dash-batch-row-head > span:nth-child(5) { flex: 0 0 30px; }
+.dash-batch-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.dash-batch-row input { min-width: 0; width: 100%; box-sizing: border-box; }
+.dash-batch-row input[type="text"], .dash-batch-row input:not([type]) { flex: 2 1 160px; }
+.dash-batch-row input[type="number"] { flex: 1 1 80px; }
+.dash-batch-row input[type="date"] { flex: 1 1 130px; }
+.dash-batch-row .button { flex: 1 1 100%; justify-content: center; }
+.dash-batch-row .dash-line-item__remove { flex: 0 0 auto; }
+.dash-batch-total { font-size: 13px; color: var(--muted); }
+
+@media (min-width: 640px) {
+  .dash-batch-row .button { flex: 0 0 auto; }
+}
 
 .dash-product-cell { display: flex; align-items: center; gap: 8px; }
 .dash-product-cell img { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
@@ -2105,6 +2133,8 @@ h1, h2, h3, h4 { line-height: 1.15; }
 
 /* Manage Product Sets modal */
 .dash-modal--sets { max-width: 960px; }
+.dash-modal--sets-reorder { max-width: 560px; }
+.dash-sets-list-panel--full { max-height: 60vh; overflow-y: auto; }
 .dash-sets-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-lg); align-items: start; }
 .dash-sets-list-panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .dash-sets-list-panel__head { display: flex; gap: 8px; }

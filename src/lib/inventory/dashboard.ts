@@ -25,7 +25,7 @@ function rangeStart(range: DateRangeKey): Date {
 export async function getDashboardMetrics(ctx: OwnerContext, range: DateRangeKey): Promise<DashboardMetrics> {
   const from = rangeStart(range).toISOString()
 
-  const [salesRes, expensesRes, productsRes, poRes] = await Promise.all([
+  const [salesRes, expensesRes, productsRes, poRes, batchesRes] = await Promise.all([
     ctx.supabase
       .from('sales_orders')
       .select('id, total, total_cost, gross_profit, created_at')
@@ -46,16 +46,30 @@ export async function getDashboardMetrics(ctx: OwnerContext, range: DateRangeKey
       .select('id', { count: 'exact', head: true })
       .eq('owner_id', ctx.ownerId)
       .in('status', ['pending', 'in_transit']),
+    ctx.supabase
+      .from('product_batches')
+      .select('product_id, quantity, cost_price')
+      .eq('owner_id', ctx.ownerId),
   ])
 
   if (salesRes.error) throw salesRes.error
   if (expensesRes.error) throw expensesRes.error
   if (productsRes.error) throw productsRes.error
   if (poRes.error) throw poRes.error
+  if (batchesRes.error) throw batchesRes.error
 
   const sales = (salesRes.data as Array<{ id: string; total: number; total_cost: number; gross_profit: number; created_at: string }>) ?? []
   const expenses = (expensesRes.data as Array<{ amount: number; category: string; expense_date: string }>) ?? []
   const products = (productsRes.data as Array<{ id: string; name: string; stock_quantity: number; cost_price: number; reorder_level: number }>) ?? []
+  const batches = (batchesRes.data as Array<{ product_id: string; quantity: number; cost_price: number }>) ?? []
+
+  // Once a product has batches, its true cost basis is per-batch (different
+  // arrival/manufacturing costs), so value it as sum(batch qty × batch cost)
+  // instead of stock_quantity × products.cost_price (a stale fallback).
+  const batchValueByProduct = new Map<string, number>()
+  for (const b of batches) {
+    batchValueByProduct.set(b.product_id, (batchValueByProduct.get(b.product_id) ?? 0) + Number(b.quantity) * Number(b.cost_price))
+  }
 
   let saleItems: Array<{ product_id: string | null; product_name: string; quantity: number; line_revenue: number; line_profit: number }> = []
   if (sales.length > 0) {
@@ -73,7 +87,10 @@ export async function getDashboardMetrics(ctx: OwnerContext, range: DateRangeKey
   const grossProfit = sales.reduce((sum, s) => sum + Number(s.gross_profit), 0)
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
   const netProfit = grossProfit - totalExpenses
-  const inventoryValue = products.reduce((sum, p) => sum + Number(p.stock_quantity) * Number(p.cost_price), 0)
+  const inventoryValue = products.reduce((sum, p) => {
+    const batchValue = batchValueByProduct.get(p.id)
+    return sum + (batchValue !== undefined ? batchValue : Number(p.stock_quantity) * Number(p.cost_price))
+  }, 0)
 
   const lowStockItems = products
     .filter((p) => p.stock_quantity <= p.reorder_level)

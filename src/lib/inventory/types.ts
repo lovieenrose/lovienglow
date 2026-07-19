@@ -51,6 +51,19 @@ export interface Product {
   updated_at: string
   category?: Pick<Category, 'id' | 'name'> | null
   supplier?: Pick<Supplier, 'id' | 'name'> | null
+  batches?: ProductBatch[]
+}
+
+export interface ProductBatch {
+  id: string
+  owner_id: string
+  product_id: string
+  batch_name: string
+  quantity: number
+  cost_price: number
+  expiration_date: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface ProductSet {

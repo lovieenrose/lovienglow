@@ -1,13 +1,15 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { Download, Minus, Package, Plus, Search, Settings2, SlidersHorizontal, Pencil, Trash2, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ChevronDown, ChevronUp, Download, Minus, Package, Plus, Search, Settings2, SlidersHorizontal, Pencil, Trash2, X } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   adjustProductStockFn,
   createCategoryFn,
+  createProductBatchFn,
   createProductFn,
   createProductSetFn,
   createSupplierFn,
   deleteCategoryFn,
+  deleteProductBatchFn,
   deleteProductFn,
   deleteProductSetFn,
   deleteSupplierFn,
@@ -15,9 +17,11 @@ import {
   listProductSetsFn,
   listProductsFn,
   listSuppliersFn,
+  updateProductBatchFn,
   updateProductFn,
+  updateProductSetFn,
 } from '@/lib/serverFunctions'
-import type { Category, Product, ProductSet, Supplier } from '@/lib/inventory/types'
+import type { Category, Product, ProductBatch, ProductSet, Supplier } from '@/lib/inventory/types'
 import { ImageUploaderGallery, ImageUploaderSingle } from '@/components/ImageUploader'
 import { ExportInventoryModal } from '@/components/inventory/ExportInventoryModal'
 
@@ -57,6 +61,7 @@ function InventoryPage() {
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null)
   const [showCatalogModal, setShowCatalogModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null)
 
   const visible = useMemo(() => {
     return data.products
@@ -135,38 +140,79 @@ function InventoryPage() {
                 {visible.length === 0 && (
                   <tr><td colSpan={7} className="dash-table__empty">No products match.</td></tr>
                 )}
-                {visible.map((product) => (
-                  <tr key={product.id}>
-                    <td>
-                      <div className="dash-product-cell">
-                        {product.image_url ? (
-                          <img src={product.image_url} alt="" />
-                        ) : (
-                          <span className="dash-product-cell__icon"><Package size={14} /></span>
-                        )}
-                        {product.name}
-                      </div>
-                    </td>
-                    <td>{product.sku ?? '—'}</td>
-                    <td>{product.category?.name ?? '—'}</td>
-                    <td>{formatPeso(product.cost_price)}</td>
-                    <td>{formatPeso(product.selling_price)}</td>
-                    <td><span className={`dash-badge ${stockBadgeClass(product)}`}>{product.stock_quantity} {product.unit}</span></td>
-                    <td>
-                      <div className="dash-row-actions">
-                        <button className="dash-icon-btn" title="Adjust stock" onClick={() => setAdjustingProduct(product)}>
-                          <SlidersHorizontal size={14} />
-                        </button>
-                        <button className="dash-icon-btn" title="Edit" onClick={() => setModalProduct(product)}>
-                          <Pencil size={14} />
-                        </button>
-                        <button className="dash-icon-btn dash-icon-btn--danger" title="Delete" onClick={() => removeProduct(product)}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {visible.map((product) => {
+                  const batches = product.batches ?? []
+                  const isBatchTracked = batches.length > 0
+                  const isExpanded = expandedProductId === product.id
+                  return (
+                    <Fragment key={product.id}>
+                      <tr>
+                        <td>
+                          <div className="dash-product-cell">
+                            {product.image_url ? (
+                              <img src={product.image_url} alt="" />
+                            ) : (
+                              <span className="dash-product-cell__icon"><Package size={14} /></span>
+                            )}
+                            {product.name}
+                          </div>
+                        </td>
+                        <td>{product.sku ?? '—'}</td>
+                        <td>{product.category?.name ?? '—'}</td>
+                        <td>{formatPeso(product.cost_price)}</td>
+                        <td>{formatPeso(product.selling_price)}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span className={`dash-badge ${stockBadgeClass(product)}`}>{product.stock_quantity} {product.unit}</span>
+                            {isBatchTracked && (
+                              <button
+                                type="button"
+                                className="dash-icon-btn"
+                                title={`${batches.length} batch(es) — click to ${isExpanded ? 'hide' : 'view'}`}
+                                onClick={() => setExpandedProductId(isExpanded ? null : product.id)}
+                              >
+                                {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="dash-row-actions">
+                            <button
+                              className="dash-icon-btn"
+                              title={isBatchTracked ? 'Manage batches to adjust stock' : 'Adjust stock'}
+                              disabled={isBatchTracked}
+                              onClick={() => setAdjustingProduct(product)}
+                            >
+                              <SlidersHorizontal size={14} />
+                            </button>
+                            <button className="dash-icon-btn" title="Edit" onClick={() => setModalProduct(product)}>
+                              <Pencil size={14} />
+                            </button>
+                            <button className="dash-icon-btn dash-icon-btn--danger" title="Delete" onClick={() => removeProduct(product)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && isBatchTracked && (
+                        <tr className="dash-batch-subrow">
+                          <td colSpan={7}>
+                            <ul className="dash-batch-list">
+                              {batches.map((batch) => (
+                                <li key={batch.id}>
+                                  <b>{batch.quantity}</b> {product.unit} left <span className="dash-muted">({batch.batch_name})</span>
+                                  {' '}<span className="dash-muted">@ {formatPeso(batch.cost_price)} cost</span>
+                                  {batch.expiration_date && <span className="dash-muted"> — exp. {batch.expiration_date}</span>}
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -229,6 +275,7 @@ function ProductModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const router = useRouter()
   const [form, setForm] = useState({
     name: product?.name ?? '',
     sku: product?.sku ?? '',
@@ -295,7 +342,7 @@ function ProductModal({
 
   return (
     <div className="dash-modal-overlay" onClick={onClose}>
-      <form className="dash-modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <form className="dash-modal dash-modal--wide" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="dash-modal__header">
           <h2>{product ? 'Edit Product' : 'Add Product'}</h2>
           <button type="button" className="dash-modal__close" onClick={onClose}><X size={18} /></button>
@@ -369,8 +416,14 @@ function ProductModal({
           </div>
           {product && (
             <p className="dash-field__hint">
-              Stock quantity is locked here — use "Adjust Stock" for manual corrections so every change stays audited.
+              {(product.batches?.length ?? 0) > 0
+                ? 'Stock quantity is locked here — it\'s computed automatically from the batches below.'
+                : 'Stock quantity is locked here — use "Adjust Stock" for manual corrections so every change stays audited.'}
             </p>
+          )}
+
+          {product && (
+            <ProductBatchesSection product={product} onChanged={() => router.invalidate()} />
           )}
 
           {storefrontMeta ? (
@@ -422,6 +475,212 @@ function ProductModal({
           </button>
         </div>
       </form>
+    </div>
+  )
+}
+
+// ── Batch/Lot tracking ───────────────────────────────────────────────────
+
+function ProductBatchesSection({ product, onChanged }: { product: Product; onChanged: () => void }) {
+  const [batches, setBatches] = useState<ProductBatch[]>(product.batches ?? [])
+  const [newBatch, setNewBatch] = useState({
+    batch_name: '',
+    quantity: '',
+    cost_price: String(product.cost_price ?? 0),
+    expiration_date: '',
+  })
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [error, setError] = useState('')
+
+  const total = batches.reduce((sum, b) => sum + b.quantity, 0)
+
+  const commitBatch = async (
+    batch: ProductBatch,
+    patch: Partial<{ batch_name: string; quantity: number; cost_price: number; expiration_date: string | null }>,
+  ) => {
+    setSavingId(batch.id)
+    setError('')
+    try {
+      const updated = await updateProductBatchFn({ data: { id: batch.id, ...patch } })
+      setBatches((prev) => prev.map((b) => (b.id === batch.id ? updated : b)))
+      onChanged()
+    } catch {
+      setError('Could not save batch change.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const addBatch = async () => {
+    if (!newBatch.batch_name.trim()) return
+    setAdding(true)
+    setError('')
+    try {
+      const created = await createProductBatchFn({
+        data: {
+          productId: product.id,
+          batch_name: newBatch.batch_name.trim(),
+          quantity: Number(newBatch.quantity) || 0,
+          cost_price: Number(newBatch.cost_price) || 0,
+          expiration_date: newBatch.expiration_date || undefined,
+        },
+      })
+      setBatches((prev) => [...prev, created])
+      setNewBatch({ batch_name: '', quantity: '', cost_price: String(product.cost_price ?? 0), expiration_date: '' })
+      onChanged()
+    } catch {
+      setError('Could not add batch.')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const removeBatch = async (batch: ProductBatch) => {
+    if (!confirm(`Remove batch "${batch.batch_name}"?`)) return
+    setSavingId(batch.id)
+    setError('')
+    try {
+      await deleteProductBatchFn({ data: { id: batch.id } })
+      setBatches((prev) => prev.filter((b) => b.id !== batch.id))
+      onChanged()
+    } catch {
+      setError('Could not remove batch.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  return (
+    <div className="dash-batch-section">
+      <div className="dash-section-divider">Batches</div>
+      <p className="dash-field__hint">
+        Split this product's stock into manufacturing/arrival batches. Sales deduct from the oldest batch first (FIFO).
+      </p>
+
+      {batches.length > 0 && (
+        <div className="dash-batch-row-head">
+          <span>Batch name</span>
+          <span>Qty</span>
+          <span>Cost price</span>
+          <span>Expiry</span>
+          <span />
+        </div>
+      )}
+
+      {batches.map((batch) => (
+        <BatchRow
+          key={batch.id}
+          batch={batch}
+          unit={product.unit}
+          saving={savingId === batch.id}
+          onCommit={(patch) => commitBatch(batch, patch)}
+          onRemove={() => removeBatch(batch)}
+        />
+      ))}
+
+      <div className="dash-batch-row">
+        <input
+          type="text"
+          placeholder="Batch name, e.g. June Batch"
+          value={newBatch.batch_name}
+          onChange={(e) => setNewBatch({ ...newBatch, batch_name: e.target.value })}
+        />
+        <input
+          type="number"
+          min={0}
+          placeholder="Qty"
+          value={newBatch.quantity}
+          onChange={(e) => setNewBatch({ ...newBatch, quantity: e.target.value })}
+        />
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          placeholder="Cost price"
+          title="Cost price for this batch"
+          value={newBatch.cost_price}
+          onChange={(e) => setNewBatch({ ...newBatch, cost_price: e.target.value })}
+        />
+        <input
+          type="date"
+          value={newBatch.expiration_date}
+          onChange={(e) => setNewBatch({ ...newBatch, expiration_date: e.target.value })}
+        />
+        <button type="button" className="button button--outline" disabled={adding || !newBatch.batch_name.trim()} onClick={addBatch}>
+          <Plus size={13} /> Add New Batch
+        </button>
+      </div>
+
+      <p className="dash-batch-total">Total across batches: <b>{total}</b> {product.unit}</p>
+      {error && <p className="dash-login__error">{error}</p>}
+    </div>
+  )
+}
+
+function BatchRow({
+  batch,
+  unit,
+  saving,
+  onCommit,
+  onRemove,
+}: {
+  batch: ProductBatch
+  unit: string
+  saving: boolean
+  onCommit: (patch: Partial<{ batch_name: string; quantity: number; cost_price: number; expiration_date: string | null }>) => void
+  onRemove: () => void
+}) {
+  const [name, setName] = useState(batch.batch_name)
+  const [quantity, setQuantity] = useState(batch.quantity)
+  const [costPrice, setCostPrice] = useState(batch.cost_price)
+  const [expiration, setExpiration] = useState(batch.expiration_date ?? '')
+
+  useEffect(() => {
+    setName(batch.batch_name)
+    setQuantity(batch.quantity)
+    setCostPrice(batch.cost_price)
+    setExpiration(batch.expiration_date ?? '')
+  }, [batch])
+
+  return (
+    <div className="dash-batch-row">
+      <input
+        type="text"
+        value={name}
+        disabled={saving}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => { if (name.trim() && name !== batch.batch_name) onCommit({ batch_name: name.trim() }) }}
+      />
+      <input
+        type="number"
+        min={0}
+        title={`Quantity (${unit})`}
+        value={quantity}
+        disabled={saving}
+        onChange={(e) => setQuantity(Number(e.target.value))}
+        onBlur={() => { if (quantity !== batch.quantity) onCommit({ quantity }) }}
+      />
+      <input
+        type="number"
+        min={0}
+        step="0.01"
+        title="Cost price for this batch"
+        value={costPrice}
+        disabled={saving}
+        onChange={(e) => setCostPrice(Number(e.target.value))}
+        onBlur={() => { if (costPrice !== batch.cost_price) onCommit({ cost_price: costPrice }) }}
+      />
+      <input
+        type="date"
+        value={expiration}
+        disabled={saving}
+        onChange={(e) => setExpiration(e.target.value)}
+        onBlur={() => { if (expiration !== (batch.expiration_date ?? '')) onCommit({ expiration_date: expiration || null }) }}
+      />
+      <button type="button" className="dash-line-item__remove" disabled={saving} onClick={onRemove}>
+        <Trash2 size={15} />
+      </button>
     </div>
   )
 }
@@ -607,7 +866,7 @@ function CategoriesSuppliersModal({
 
 function ProductSetsTab({ productSets, products }: { productSets: ProductSet[]; products: Product[] }) {
   const router = useRouter()
-  const [showModal, setShowModal] = useState(false)
+  const [modalSet, setModalSet] = useState<ProductSet | 'new' | null>(null)
 
   const remove = async (id: string) => {
     if (!confirm('Delete this product set?')) return
@@ -619,7 +878,7 @@ function ProductSetsTab({ productSets, products }: { productSets: ProductSet[]; 
     <div>
       <div className="dash-toolbar">
         <div />
-        <button className="button button--dark" onClick={() => setShowModal(true)}><Plus size={14} /> Add Product Set</button>
+        <button className="button button--dark" onClick={() => setModalSet('new')}><Plus size={14} /> Add Product Set</button>
       </div>
 
       {productSets.length === 0 ? (
@@ -630,7 +889,10 @@ function ProductSetsTab({ productSets, products }: { productSets: ProductSet[]; 
             <div className="dash-card" key={set.id} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                 <b>{set.name}</b>
-                <button className="dash-icon-btn dash-icon-btn--danger" onClick={() => remove(set.id)}><Trash2 size={13} /></button>
+                <div className="dash-row-actions">
+                  <button className="dash-icon-btn" title="Edit" onClick={() => setModalSet(set)}><Pencil size={13} /></button>
+                  <button className="dash-icon-btn dash-icon-btn--danger" title="Delete" onClick={() => remove(set.id)}><Trash2 size={13} /></button>
+                </div>
               </div>
               <ul style={{ fontSize: 13, color: 'var(--muted)', paddingLeft: 16 }}>
                 {set.items.map((item) => (
@@ -642,25 +904,35 @@ function ProductSetsTab({ productSets, products }: { productSets: ProductSet[]; 
         </div>
       )}
 
-      {showModal && (
-        <ProductSetModal products={products} onClose={() => setShowModal(false)} onSaved={async () => { setShowModal(false); await router.invalidate() }} />
+      {modalSet && (
+        <ProductSetModal
+          set={modalSet === 'new' ? null : modalSet}
+          products={products}
+          onClose={() => setModalSet(null)}
+          onSaved={async () => { setModalSet(null); await router.invalidate() }}
+        />
       )}
     </div>
   )
 }
 
 function ProductSetModal({
+  set,
   products,
   onClose,
   onSaved,
 }: {
+  set: ProductSet | null
   products: Product[]
   onClose: () => void
   onSaved: () => void
 }) {
-  const [name, setName] = useState('')
-  const [items, setItems] = useState<Array<{ product_id: string; quantity: number }>>([])
+  const [name, setName] = useState(set?.name ?? '')
+  const [items, setItems] = useState<Array<{ product_id: string; quantity: number }>>(
+    set?.items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })) ?? [],
+  )
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const sortedProducts = useMemo(
     () => [...products].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })),
@@ -674,22 +946,32 @@ function ProductSetModal({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (items.length === 0) return
+    if (!name.trim() || items.length === 0) return
     setSaving(true)
-    await createProductSetFn({ data: { name, items } })
-    onSaved()
+    setError('')
+    try {
+      if (set) {
+        await updateProductSetFn({ data: { id: set.id, name, icon: set.icon ?? undefined, color: set.color ?? undefined, sort_order: set.sort_order, items } })
+      } else {
+        await createProductSetFn({ data: { name, items } })
+      }
+      onSaved()
+    } catch {
+      setError('Could not save product set.')
+      setSaving(false)
+    }
   }
 
   return (
     <div className="dash-modal-overlay" onClick={onClose}>
       <form className="dash-modal dash-modal--wide" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <div className="dash-modal__header">
-          <h2>Add Product Set</h2>
+          <h2>{set ? 'Edit Product Set' : 'Add Product Set'}</h2>
           <button type="button" className="dash-modal__close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="dash-modal__body">
           <label className="dash-field">
-            <span>Set Name</span>
+            <span>Set Name *</span>
             <input required value={name} onChange={(e) => setName(e.target.value)} />
           </label>
 
@@ -712,10 +994,14 @@ function ProductSetModal({
             ))}
           </div>
           <button type="button" className="button button--outline" onClick={addItem}><Plus size={13} /> Add Item</button>
+          {items.length === 0 && <p className="dash-field__hint">Add at least one product to this set.</p>}
+          {error && <p className="dash-login__error">{error}</p>}
         </div>
         <div className="dash-modal__footer">
           <button type="button" className="button button--outline" onClick={onClose}>Cancel</button>
-          <button type="submit" className="button button--dark" disabled={saving || items.length === 0}>{saving ? 'Saving…' : 'Save Set'}</button>
+          <button type="submit" className="button button--dark" disabled={saving || !name.trim() || items.length === 0}>
+            {saving ? 'Saving…' : set ? 'Save changes' : 'Save Set'}
+          </button>
         </div>
       </form>
     </div>

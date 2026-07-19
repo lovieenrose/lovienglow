@@ -30,17 +30,6 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 // Original seed values from the initial 47-product import, keyed by SKU.
 const SEED_STOCK = {
   BLBP: { stock_quantity: 2, reorder_level: 5 },
-  'PCH-COU-BLK-L-PC': { stock_quantity: 100, reorder_level: 5 },
-  'BBL-MLR-PNK-L-PC': { stock_quantity: 50, reorder_level: 5 },
-  'STK-TY-PNK-PC': { stock_quantity: 50, reorder_level: 5 },
-  'PCH-COU-BLK-M-PC': { stock_quantity: 100, reorder_level: 5 },
-  'PCH-COU-BLK-S-PC': { stock_quantity: 100, reorder_level: 5 },
-  'BBL-MLR-PNK-M-PC': { stock_quantity: 50, reorder_level: 5 },
-  'BBL-MLR-PNK-S-PC': { stock_quantity: 100, reorder_level: 5 },
-  'STK-NVD-RR-PC': { stock_quantity: 500, reorder_level: 5 },
-  'STK-FRG-PNK-PC': { stock_quantity: 100, reorder_level: 5 },
-  'PCH-PNK-8513-PC': { stock_quantity: 20, reorder_level: 1 },
-  'BOX-CRG-T1-6415-PC': { stock_quantity: 50, reorder_level: 5 },
   DS05: { stock_quantity: 4, reorder_level: 5 },
   CU50: { stock_quantity: 6, reorder_level: 5 },
   'GLU-1200MG': { stock_quantity: 0, reorder_level: 5 },

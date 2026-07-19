@@ -25,22 +25,26 @@ import {
   adjustProductStock,
   createCategory,
   createProduct,
+  createProductBatch,
   createProductSet,
   createSupplier,
   deleteCategory,
   deleteProduct,
+  deleteProductBatch,
   deleteProductSet,
   deleteSupplier,
   ensureBusinessProfile,
   getBusinessProfile,
   listCategories,
+  listProductBatches,
   listProductSets,
   listProducts,
   listSuppliers,
-  swapProductSetOrder,
+  reorderProductSets,
   updateBusinessProfile,
   updateCategory,
   updateProduct,
+  updateProductBatch,
   updateProductSet,
   updateSupplier,
 } from './inventory/catalog'
@@ -376,6 +380,58 @@ export const adjustProductStockFn = createServerFn({ method: 'POST' })
     return adjustProductStock(ctx, id, input)
   })
 
+// ── Product batches (batch/lot tracking) ────────────────────────────────
+// Equivalent to POST /api/products/:productId/batches and
+// PATCH/DELETE /api/batches/:id, expressed as TanStack Start server
+// functions (the pattern used throughout this app instead of REST routes).
+
+export const listProductBatchesFn = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ productId: z.string() }))
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    return listProductBatches(ctx, data.productId)
+  })
+
+export const createProductBatchFn = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      productId: z.string(),
+      batch_name: z.string().min(1),
+      quantity: z.number().int().min(0),
+      cost_price: z.number().min(0),
+      expiration_date: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    const { productId, ...input } = data
+    return createProductBatch(ctx, productId, input)
+  })
+
+export const updateProductBatchFn = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      id: z.string(),
+      batch_name: z.string().min(1).optional(),
+      quantity: z.number().int().min(0).optional(),
+      cost_price: z.number().min(0).optional(),
+      expiration_date: z.string().nullable().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    const { id, ...patch } = data
+    return updateProductBatch(ctx, id, patch)
+  })
+
+export const deleteProductBatchFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    await deleteProductBatch(ctx, data.id)
+    return { success: true as const }
+  })
+
 // ── Product sets ──────────────────────────────────────────────────────────
 
 export const listProductSetsFn = createServerFn({ method: 'GET' }).handler(async () => {
@@ -423,16 +479,11 @@ export const updateProductSetFn = createServerFn({ method: 'POST' })
     return updateProductSet(ctx, id, input)
   })
 
-export const swapProductSetOrderFn = createServerFn({ method: 'POST' })
-  .inputValidator(
-    z.object({
-      a: z.object({ id: z.string(), sort_order: z.number() }),
-      b: z.object({ id: z.string(), sort_order: z.number() }),
-    }),
-  )
+export const reorderProductSetsFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ ids: z.array(z.string()) }))
   .handler(async ({ data }) => {
     const ctx = await requireOwner()
-    await swapProductSetOrder(ctx, data.a, data.b)
+    await reorderProductSets(ctx, data.ids)
     return { success: true as const }
   })
 

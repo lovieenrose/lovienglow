@@ -461,7 +461,6 @@ function NewSaleView({
       {showManageSets && (
         <ManageProductSetsModal
           productSets={productSets}
-          products={products}
           onClose={() => setShowManageSets(false)}
           onChanged={onSaleCreated}
         />
