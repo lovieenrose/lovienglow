@@ -327,11 +327,13 @@ export function InvoiceModal({
               <div>
                 <span>Shipping Fee{order.courier ? ` (${order.courier})` : ''}</span>
                 <span>
-                  {order.shipping_fee <= 0
-                    ? 'FREE'
-                    : order.shipping_paid_by === 'customer'
-                      ? `${formatPeso(order.shipping_fee)} — pay courier directly`
-                      : 'FREE (shipping on us)'}
+                  {order.courier === 'Lalamove'
+                    ? 'Pay courier directly'
+                    : order.shipping_fee <= 0
+                      ? 'FREE'
+                      : order.shipping_paid_by === 'customer'
+                        ? `${formatPeso(order.shipping_fee)} — pay courier directly`
+                        : 'FREE (shipping on us)'}
                 </span>
               </div>
               {order.discount > 0 && <div><span>Discount</span><span>-{formatPeso(order.discount)}</span></div>}

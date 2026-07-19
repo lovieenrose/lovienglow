@@ -19,9 +19,11 @@ export function SaleDetailsModal({ order, onClose }: { order: SalesOrder; onClos
             <div><span className="dash-muted">Courier</span><br />{order.courier || '—'}</div>
             <div>
               <span className="dash-muted">Shipping Fee</span><br />
-              {order.shipping_fee > 0
-                ? `${formatPeso(order.shipping_fee)} (${order.shipping_paid_by === 'customer' ? 'customer pays' : 'shouldered by you'})`
-                : 'None'}
+              {order.courier === 'Lalamove'
+                ? 'Pay courier directly'
+                : order.shipping_fee > 0
+                  ? `${formatPeso(order.shipping_fee)} (${order.shipping_paid_by === 'customer' ? 'customer pays' : 'shouldered by you'})`
+                  : 'None'}
             </div>
           </div>
 

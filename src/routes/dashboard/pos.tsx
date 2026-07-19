@@ -441,37 +441,57 @@ function NewSaleView({
         <div className="dash-form-grid">
           <label className="dash-field">
             <span>Courier</span>
-            <select value={courier} onChange={(e) => setCourier(e.target.value)}>
+            <select
+              value={courier}
+              onChange={(e) => {
+                const next = e.target.value
+                setCourier(next)
+                if (next === 'Lalamove') {
+                  // Lalamove's fee is set in-app by the rider/courier at pickup, not
+                  // known at checkout — nothing to record or shoulder here.
+                  setShippingFee(0)
+                  setShippingPaidBy('customer')
+                }
+              }}
+            >
               <option value="">— None —</option>
               {COURIERS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </label>
-          <label className="dash-field">
-            <span>Shipping Fee (for record)</span>
-            <input type="number" min={0} step="0.01" value={shippingFee || ''} placeholder="0" onChange={(e) => setShippingFee(Number(e.target.value))} />
-          </label>
+          {courier !== 'Lalamove' && (
+            <label className="dash-field">
+              <span>Shipping Fee</span>
+              <input type="number" min={0} step="0.01" value={shippingFee || ''} placeholder="0" onChange={(e) => setShippingFee(Number(e.target.value))} />
+            </label>
+          )}
         </div>
-        <div className="dash-segmented">
-          <button
-            type="button"
-            className={`dash-segmented__btn ${shippingPaidBy === 'customer' ? 'is-active' : ''}`}
-            onClick={() => setShippingPaidBy('customer')}
-          >
-            Customer pays
-          </button>
-          <button
-            type="button"
-            className={`dash-segmented__btn ${shippingPaidBy === 'business' ? 'is-active' : ''}`}
-            onClick={() => setShippingPaidBy('business')}
-          >
-            I'll shoulder it (free shipping)
-          </button>
-        </div>
-        <p className="dash-field__hint">
-          {shippingPaidBy === 'customer'
-            ? "Shipping fee is for your records only — it's never added to the customer's total, since they pay the courier directly."
-            : "Free shipping for the customer — this amount will be logged as a Shipping expense when you check out."}
-        </p>
+        {courier === 'Lalamove' ? (
+          <p className="dash-field__hint">Shipping Fee (Lalamove) — pay courier directly.</p>
+        ) : (
+          <>
+            <div className="dash-segmented">
+              <button
+                type="button"
+                className={`dash-segmented__btn ${shippingPaidBy === 'customer' ? 'is-active' : ''}`}
+                onClick={() => setShippingPaidBy('customer')}
+              >
+                Customer pays
+              </button>
+              <button
+                type="button"
+                className={`dash-segmented__btn ${shippingPaidBy === 'business' ? 'is-active' : ''}`}
+                onClick={() => setShippingPaidBy('business')}
+              >
+                I'll shoulder it (free shipping)
+              </button>
+            </div>
+            <p className="dash-field__hint">
+              {shippingPaidBy === 'customer'
+                ? "Shipping fee is for your records only — it's never added to the customer's total, since they pay the courier directly."
+                : "Free shipping for the customer — this amount will be logged as a Shipping expense when you check out."}
+            </p>
+          </>
+        )}
 
         <label className="dash-field">
           <span>Promo / Discount Code</span>
@@ -498,9 +518,11 @@ function NewSaleView({
           <div>
             <span>Shipping Fee{courier ? ` (${courier})` : ''}</span>
             <span>
-              {shippingFee > 0
-                ? `${formatPeso(shippingFee)} — ${shippingPaidBy === 'customer' ? 'customer pays' : 'you shoulder'}`
-                : 'None'}
+              {courier === 'Lalamove'
+                ? 'Pay courier directly'
+                : shippingFee > 0
+                  ? `${formatPeso(shippingFee)} — ${shippingPaidBy === 'customer' ? 'customer pays' : 'you shoulder'}`
+                  : 'None'}
             </span>
           </div>
           <div><span>Promo / Discount Code</span><span>{appliedPromo ? appliedPromo.code : 'None'}</span></div>
