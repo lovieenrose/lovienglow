@@ -6,7 +6,6 @@ export interface BusinessProfile {
   full_name: string
   currency: string
   logo_url: string | null
-  invoice_banner_url: string | null
   created_at: string
   updated_at: string
 }
@@ -160,6 +159,7 @@ export interface SalesOrder {
   updated_at: string
   items?: SalesOrderItem[]
   invoice_items: InvoiceLineItem[] | null
+  invoice_title: string | null
 }
 
 // A cosmetic override of what the printed invoice shows — see

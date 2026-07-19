@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { clearOwnerSession, establishOwnerSession, isOwnerAuthenticated, requireOwner } from './auth'
-import { uploadBusinessLogo, uploadInvoiceBanner, uploadPaymentProof, uploadProductImage } from './supabase'
+import { uploadBusinessLogo, uploadPaymentProof, uploadProductImage } from './supabase'
 import {
   adjustProductStock,
   createCategory,
@@ -45,6 +45,7 @@ import {
   markSalePaid,
   reverseSale,
   updateSaleInvoiceItems,
+  updateSaleInvoiceTitle,
 } from './inventory/sales'
 import { createExpense, deleteExpense, listExpenses, updateExpense } from './inventory/expenses'
 import { createPromo, deletePromo, listPromos, updatePromo } from './inventory/promos'
@@ -462,6 +463,13 @@ export const updateSaleInvoiceItemsFn = createServerFn({ method: 'POST' })
     return updateSaleInvoiceItems(ctx, data.id, data.invoiceItems)
   })
 
+export const updateSaleInvoiceTitleFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string(), invoiceTitle: z.string().nullable() }))
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    return updateSaleInvoiceTitle(ctx, data.id, data.invoiceTitle)
+  })
+
 export const reverseSaleFn = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
@@ -494,14 +502,6 @@ export const uploadPaymentProofFn = createServerFn({ method: 'POST' })
     const ctx = await requireOwner()
     const url = await uploadPaymentProof(data.filename, data.contentType, base64ToBytes(data.base64))
     return markSalePaid(ctx, data.saleId, url)
-  })
-
-export const uploadInvoiceBannerFn = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ filename: z.string().min(1), contentType: z.string().min(1), base64: z.string().min(1) }))
-  .handler(async ({ data }) => {
-    const ctx = await requireOwner()
-    const url = await uploadInvoiceBanner(data.filename, data.contentType, base64ToBytes(data.base64))
-    return updateBusinessProfile(ctx, { invoice_banner_url: url })
   })
 
 export const uploadBusinessLogoFn = createServerFn({ method: 'POST' })

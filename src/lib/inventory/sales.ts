@@ -134,3 +134,24 @@ export async function updateSaleInvoiceItems(
   if (!order) throw new Error('Sales order not found after updating invoice items')
   return order
 }
+
+// Per-order override of the invoice's header title (defaults to the
+// business name) — e.g. "LOVIE X PINC" for an occasional co-branded sale,
+// without touching the actual Business Profile. Pass `null` to revert to
+// the business name.
+export async function updateSaleInvoiceTitle(
+  ctx: OwnerContext,
+  id: string,
+  invoiceTitle: string | null,
+): Promise<SalesOrder> {
+  const { error } = await ctx.supabase
+    .from('sales_orders')
+    .update({ invoice_title: invoiceTitle })
+    .eq('id', id)
+    .eq('owner_id', ctx.ownerId)
+  if (error) throw error
+
+  const order = await getSalesOrder(ctx, id)
+  if (!order) throw new Error('Sales order not found after updating invoice title')
+  return order
+}

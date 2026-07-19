@@ -1,7 +1,7 @@
 import { Download, Image as ImageIcon, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
-import { markSalePaidFn, updateSaleInvoiceItemsFn, uploadInvoiceBannerFn, uploadPaymentProofFn } from '@/lib/serverFunctions'
+import { markSalePaidFn, updateSaleInvoiceItemsFn, updateSaleInvoiceTitleFn, uploadPaymentProofFn } from '@/lib/serverFunctions'
 import type { BusinessProfile, InvoiceLineItem, SalesOrder } from '@/lib/inventory/types'
 import { formatPeso } from '@/routes/dashboard/pos'
 
@@ -135,6 +135,67 @@ function InvoiceItemsEditor({ order, onSaved }: { order: SalesOrder; onSaved: (o
   )
 }
 
+function InvoiceTitleEditor({
+  order,
+  defaultTitle,
+  onSaved,
+}: {
+  order: SalesOrder
+  defaultTitle: string
+  onSaved: (order: SalesOrder) => void
+}) {
+  const [title, setTitle] = useState(order.invoice_title ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const commit = async (value: string | null) => {
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await updateSaleInvoiceTitleFn({ data: { id: order.id, invoiceTitle: value } })
+      onSaved(updated)
+    } catch {
+      setError('Could not save invoice title.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="dash-field">
+      <span>Invoice Title</span>
+      <input
+        type="text"
+        placeholder={defaultTitle}
+        value={title}
+        disabled={saving}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => {
+          const trimmed = title.trim()
+          if (trimmed !== (order.invoice_title ?? '')) void commit(trimmed || null)
+        }}
+      />
+      <p className="dash-field__hint">
+        Defaults to your business name — override it for an occasional co-branded sale (e.g. "LOVIE X PINC").
+      </p>
+      {order.invoice_title && (
+        <button
+          type="button"
+          className="dash-link-btn"
+          disabled={saving}
+          onClick={() => {
+            setTitle('')
+            void commit(null)
+          }}
+        >
+          Reset to business name
+        </button>
+      )}
+      {error && <p className="dash-login__error">{error}</p>}
+    </div>
+  )
+}
+
 function fileToBase64(file: File): Promise<{ base64: string; contentType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -168,14 +229,13 @@ export function InvoiceModal({
   const router = useRouter()
   const invoiceRef = useRef<HTMLDivElement>(null)
   const [uploadingProof, setUploadingProof] = useState(false)
-  const [uploadingBanner, setUploadingBanner] = useState(false)
   const [marking, setMarking] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
 
   const displayItems = order.invoice_items && order.invoice_items.length > 0 ? order.invoice_items : itemizedDefault(order)
   const displaySubtotal = displayItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const displayTotal = Math.max(0, displaySubtotal - order.discount) + order.shipping_fee
+  const displayTotal = Math.max(0, displaySubtotal - order.discount)
 
   const handleProofUpload = async (file: File) => {
     setUploadingProof(true)
@@ -189,20 +249,6 @@ export function InvoiceModal({
       setError('Could not upload payment receipt.')
     } finally {
       setUploadingProof(false)
-    }
-  }
-
-  const handleBannerUpload = async (file: File) => {
-    setUploadingBanner(true)
-    setError('')
-    try {
-      const { base64, contentType } = await fileToBase64(file)
-      await uploadInvoiceBannerFn({ data: { filename: file.name, contentType, base64 } })
-      await router.invalidate()
-    } catch {
-      setError('Could not upload banner.')
-    } finally {
-      setUploadingBanner(false)
     }
   }
 
@@ -249,11 +295,8 @@ export function InvoiceModal({
         </div>
         <div className="dash-modal__body dash-invoice-layout">
           <div className="dash-invoice-preview" ref={invoiceRef}>
-            {businessProfile?.invoice_banner_url && (
-              <img src={businessProfile.invoice_banner_url} alt="" className="dash-invoice-preview__banner" />
-            )}
             <div className="dash-invoice-preview__head">
-              <h3>{businessProfile?.business_name ?? 'Invoice'}</h3>
+              <h3>{order.invoice_title || businessProfile?.business_name || 'Invoice'}</h3>
               <div className="dash-invoice-preview__meta">
                 <b>INVOICE</b>
                 <span>{order.order_number}</span>
@@ -304,17 +347,7 @@ export function InvoiceModal({
 
             <InvoiceItemsEditor order={order} onSaved={onChanged} />
 
-            <div className="dash-field">
-              <span>Invoice Banner</span>
-              {businessProfile?.invoice_banner_url && (
-                <img src={businessProfile.invoice_banner_url} alt="" className="dash-invoice-side__banner-preview" />
-              )}
-              <label className="button button--outline button--wide" style={{ cursor: 'pointer' }}>
-                <ImageIcon size={14} /> {uploadingBanner ? 'Uploading…' : 'Replace Banner'}
-                <input type="file" accept="image/*" hidden disabled={uploadingBanner}
-                  onChange={(e) => e.target.files?.[0] && handleBannerUpload(e.target.files[0])} />
-              </label>
-            </div>
+            <InvoiceTitleEditor order={order} defaultTitle={businessProfile?.business_name ?? 'Invoice'} onSaved={onChanged} />
 
             {order.status !== 'reversed' && (
               <div className="dash-field">

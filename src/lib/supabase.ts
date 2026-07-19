@@ -50,32 +50,6 @@ export async function uploadPaymentProof(filename: string, contentType: string, 
   return uploadReceipt(filename, contentType, bytes)
 }
 
-const BANNERS_BUCKET = 'banners'
-let bannersBucketEnsured = false
-
-async function ensureBannersBucket() {
-  if (bannersBucketEnsured) return
-  const supabase = getSupabaseAdmin()
-  const { data } = await supabase.storage.getBucket(BANNERS_BUCKET)
-  if (!data) {
-    await supabase.storage.createBucket(BANNERS_BUCKET, { public: true })
-  }
-  bannersBucketEnsured = true
-}
-
-export async function uploadInvoiceBanner(filename: string, contentType: string, bytes: Uint8Array) {
-  await ensureBannersBucket()
-  const supabase = getSupabaseAdmin()
-  const path = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-  const { error } = await supabase.storage.from(BANNERS_BUCKET).upload(path, bytes, {
-    contentType,
-    upsert: false,
-  })
-  if (error) throw error
-  const { data } = supabase.storage.from(BANNERS_BUCKET).getPublicUrl(path)
-  return data.publicUrl
-}
-
 const LOGOS_BUCKET = 'logos'
 let logosBucketEnsured = false
 
