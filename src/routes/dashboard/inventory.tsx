@@ -188,8 +188,7 @@ function InventoryPage() {
                           <div className="dash-row-actions">
                             <button
                               className="dash-icon-btn"
-                              title={isBatchTracked ? 'Manage batches to adjust stock' : 'Adjust stock'}
-                              disabled={isBatchTracked}
+                              title="Adjust stock"
                               onClick={() => setAdjustingProduct(product)}
                             >
                               <SlidersHorizontal size={14} />
