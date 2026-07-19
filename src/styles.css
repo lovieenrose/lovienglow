@@ -1693,6 +1693,7 @@ h1, h2, h3, h4 { line-height: 1.15; }
   position: sticky; top: 0; height: 100vh;
 }
 .dash-sidebar__brand { font-family: var(--serif); font-size: 22px; margin-bottom: var(--space-xl); color: var(--pink-light); }
+.dash-sidebar__brand img { max-height: 40px; max-width: 100%; display: block; }
 .dash-sidebar__nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .dash-nav-link {
   display: flex; align-items: center; gap: var(--space-sm); padding: 10px 12px;

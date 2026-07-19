@@ -8,7 +8,12 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { name: 'robots', content: 'noindex,nofollow' },
-      { title: 'LovieNGlow — Business Inventory & Sales' },
+      { title: 'Invory — Inventory & Sales Tracker' },
+      {
+        name: 'description',
+        content:
+          'An inventory and sales tracker designed to help businesses manage products, monitor sales, and stay organized.',
+      },
     ],
     links: [
       { rel: 'icon', href: '/favicon.ico' },

@@ -17,16 +17,20 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
-async function uploadFile(file: File): Promise<string> {
+async function defaultUpload(file: File): Promise<string> {
+  const base64 = await fileToBase64(file)
+  const { url } = await uploadProductImageFn({ data: { filename: file.name, contentType: file.type, base64 } })
+  return url
+}
+
+async function uploadFile(file: File, uploadFn: (file: File) => Promise<string>): Promise<string> {
   if (!ACCEPTED_TYPES.includes(file.type)) {
     throw new Error('Only JPEG, PNG, or WebP images are allowed.')
   }
   if (file.size > MAX_SIZE_MB * 1024 * 1024) {
     throw new Error(`Image must be ${MAX_SIZE_MB}MB or smaller.`)
   }
-  const base64 = await fileToBase64(file)
-  const { url } = await uploadProductImageFn({ data: { filename: file.name, contentType: file.type, base64 } })
-  return url
+  return uploadFn(file)
 }
 
 function DropZone({ uploading, onFiles, children }: { uploading: boolean; onFiles: (files: FileList) => void; children: React.ReactNode }) {
@@ -63,7 +67,17 @@ function DropZone({ uploading, onFiles, children }: { uploading: boolean; onFile
   )
 }
 
-export function ImageUploaderSingle({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+export function ImageUploaderSingle({
+  value,
+  onChange,
+  upload = defaultUpload,
+  alt = 'Product',
+}: {
+  value: string
+  onChange: (url: string) => void
+  upload?: (file: File) => Promise<string>
+  alt?: string
+}) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
@@ -71,7 +85,7 @@ export function ImageUploaderSingle({ value, onChange }: { value: string; onChan
     setError('')
     setUploading(true)
     try {
-      const url = await uploadFile(files[0])
+      const url = await uploadFile(files[0], upload)
       onChange(url)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed.')
@@ -83,7 +97,7 @@ export function ImageUploaderSingle({ value, onChange }: { value: string; onChan
   if (value) {
     return (
       <div className="image-uploader__single-preview">
-        <img src={value} alt="Product" />
+        <img src={value} alt={alt} />
         <button type="button" className="image-uploader__remove" onClick={() => onChange('')} aria-label="Remove image">
           <X size={14} />
         </button>

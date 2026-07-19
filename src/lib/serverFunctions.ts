@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { clearOwnerSession, establishOwnerSession, isOwnerAuthenticated, requireOwner } from './auth'
-import { uploadInvoiceBanner, uploadPaymentProof, uploadProductImage } from './supabase'
+import { uploadBusinessLogo, uploadInvoiceBanner, uploadPaymentProof, uploadProductImage } from './supabase'
 import {
   adjustProductStock,
   createCategory,
@@ -91,6 +91,7 @@ export const updateBusinessProfileFn = createServerFn({ method: 'POST' })
       businessType: z.string().optional(),
       fullName: z.string().min(1),
       currency: z.string().min(1),
+      logoUrl: z.string().nullable().optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -100,6 +101,7 @@ export const updateBusinessProfileFn = createServerFn({ method: 'POST' })
       business_type: data.businessType || null,
       full_name: data.fullName,
       currency: data.currency,
+      ...(data.logoUrl !== undefined ? { logo_url: data.logoUrl } : {}),
     })
   })
 
@@ -468,6 +470,14 @@ export const uploadInvoiceBannerFn = createServerFn({ method: 'POST' })
     const ctx = await requireOwner()
     const url = await uploadInvoiceBanner(data.filename, data.contentType, base64ToBytes(data.base64))
     return updateBusinessProfile(ctx, { invoice_banner_url: url })
+  })
+
+export const uploadBusinessLogoFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ filename: z.string().min(1), contentType: z.string().min(1), base64: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    const url = await uploadBusinessLogo(ctx.ownerId, data.filename, data.contentType, base64ToBytes(data.base64))
+    return updateBusinessProfile(ctx, { logo_url: url })
   })
 
 export const uploadProductImageFn = createServerFn({ method: 'POST' })

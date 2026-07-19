@@ -5,6 +5,7 @@ export interface BusinessProfile {
   business_type: string | null
   full_name: string
   currency: string
+  logo_url: string | null
   invoice_banner_url: string | null
   created_at: string
   updated_at: string

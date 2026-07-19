@@ -42,7 +42,7 @@ export async function getBusinessProfile(ctx: OwnerContext): Promise<BusinessPro
 
 export async function updateBusinessProfile(
   ctx: OwnerContext,
-  patch: Partial<Pick<BusinessProfile, 'business_name' | 'business_type' | 'full_name' | 'currency' | 'invoice_banner_url'>>,
+  patch: Partial<Pick<BusinessProfile, 'business_name' | 'business_type' | 'full_name' | 'currency' | 'logo_url' | 'invoice_banner_url'>>,
 ): Promise<BusinessProfile> {
   const { data, error } = await ctx.supabase
     .from('business_profiles')

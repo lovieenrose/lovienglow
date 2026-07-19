@@ -1,7 +1,8 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { Save } from 'lucide-react'
 import { useState } from 'react'
-import { getBusinessProfileFn, updateBusinessProfileFn } from '@/lib/serverFunctions'
+import { getBusinessProfileFn, updateBusinessProfileFn, uploadBusinessLogoFn } from '@/lib/serverFunctions'
+import { ImageUploaderSingle } from '@/components/ImageUploader'
 
 export const Route = createFileRoute('/dashboard/settings')({
   loader: () => getBusinessProfileFn(),
@@ -15,6 +16,7 @@ function SettingsPage() {
   const [businessType, setBusinessType] = useState(profile?.business_type ?? '')
   const [fullName, setFullName] = useState(profile?.full_name ?? '')
   const [currency, setCurrency] = useState(profile?.currency ?? 'PHP')
+  const [logoUrl, setLogoUrl] = useState(profile?.logo_url ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -28,12 +30,45 @@ function SettingsPage() {
     setSaved(true)
   }
 
+  const uploadLogo = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const result = reader.result as string
+          const base64 = result.slice(result.indexOf(',') + 1)
+          const updated = await uploadBusinessLogoFn({ data: { filename: file.name, contentType: file.type, base64 } })
+          resolve(updated.logo_url ?? '')
+        } catch (err) {
+          reject(err)
+        }
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const handleLogoChange = async (url: string) => {
+    setLogoUrl(url)
+    if (!url) {
+      // A non-empty url just came from uploadLogo(), which already persisted
+      // it server-side — only an explicit removal needs its own save.
+      await updateBusinessProfileFn({ data: { businessName, businessType, fullName, currency, logoUrl: null } })
+    }
+    await router.invalidate()
+  }
+
   return (
     <div className="dash-page">
       <h1 className="dash-page__title">Settings</h1>
       <div className="dash-panel" style={{ maxWidth: 480 }}>
         <h2>Business Profile</h2>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <label>
+            <span>Company Logo</span>
+            <ImageUploaderSingle value={logoUrl} onChange={handleLogoChange} upload={uploadLogo} alt="Company logo" />
+          </label>
+          <p className="dash-field__hint">Shown in the sidebar and on printed invoices. JPEG, PNG, or WebP, up to 5MB.</p>
+
           <label>
             <span>Business Name</span>
             <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />

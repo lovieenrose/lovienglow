@@ -79,7 +79,7 @@ function LoginPage() {
         <div className="dash-login__icon">
           <Lock size={20} />
         </div>
-        <h1>LovieNGlow Admin</h1>
+        <h1>Invory</h1>
         <p>{mode === 'sign_in' ? 'Sign in to manage your business.' : 'Create your business account.'}</p>
 
         {mode === 'sign_up' && (

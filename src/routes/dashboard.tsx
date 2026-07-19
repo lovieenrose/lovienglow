@@ -10,7 +10,7 @@ import {
   ShoppingCart,
   Users,
 } from 'lucide-react'
-import { ownerLogoutFn, verifyOwnerFn } from '@/lib/serverFunctions'
+import { getBusinessProfileFn, ownerLogoutFn, verifyOwnerFn } from '@/lib/serverFunctions'
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient'
 
 export const Route = createFileRoute('/dashboard')({
@@ -21,6 +21,10 @@ export const Route = createFileRoute('/dashboard')({
     if (location.pathname === '/dashboard/login') return
     const { valid } = await verifyOwnerFn()
     if (!valid) throw redirect({ to: '/dashboard/login' })
+  },
+  loader: async ({ location }) => {
+    if (location.pathname === '/dashboard/login') return null
+    return getBusinessProfileFn()
   },
   component: DashboardLayout,
 })
@@ -39,6 +43,7 @@ const navItems = [
 function DashboardLayout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const profile = Route.useLoaderData()
 
   if (location.pathname === '/dashboard/login') {
     return <Outlet />
@@ -53,7 +58,9 @@ function DashboardLayout() {
   return (
     <div className="dash-shell">
       <aside className="dash-sidebar">
-        <div className="dash-sidebar__brand">LovieNGlow</div>
+        <div className="dash-sidebar__brand">
+          {profile?.logo_url ? <img src={profile.logo_url} alt={profile.business_name} /> : 'Invory'}
+        </div>
         <nav className="dash-sidebar__nav">
           {navItems.map((item) => {
             const Icon = item.icon

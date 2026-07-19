@@ -76,6 +76,32 @@ export async function uploadInvoiceBanner(filename: string, contentType: string,
   return data.publicUrl
 }
 
+const LOGOS_BUCKET = 'logos'
+let logosBucketEnsured = false
+
+async function ensureLogosBucket() {
+  if (logosBucketEnsured) return
+  const supabase = getSupabaseAdmin()
+  const { data } = await supabase.storage.getBucket(LOGOS_BUCKET)
+  if (!data) {
+    await supabase.storage.createBucket(LOGOS_BUCKET, { public: true })
+  }
+  logosBucketEnsured = true
+}
+
+export async function uploadBusinessLogo(ownerId: string, filename: string, contentType: string, bytes: Uint8Array) {
+  await ensureLogosBucket()
+  const supabase = getSupabaseAdmin()
+  const path = `${ownerId}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const { error } = await supabase.storage.from(LOGOS_BUCKET).upload(path, bytes, {
+    contentType,
+    upsert: false,
+  })
+  if (error) throw error
+  const { data } = supabase.storage.from(LOGOS_BUCKET).getPublicUrl(path)
+  return data.publicUrl
+}
+
 const PRODUCT_IMAGES_BUCKET = 'product-images'
 let productImagesBucketEnsured = false
 
