@@ -3,7 +3,11 @@ import type { BusinessProfile, Category, Product, ProductBatch, ProductSet, Supp
 
 // ── business_profiles ────────────────────────────────────────────────────
 
-export async function ensureBusinessProfile(ctx: OwnerContext, fallbackName: string): Promise<BusinessProfile> {
+export async function ensureBusinessProfile(
+  ctx: OwnerContext,
+  fallbackName: string,
+  extra?: { businessType?: string; currency?: string },
+): Promise<BusinessProfile> {
   const { data: existing } = await ctx.supabase
     .from('business_profiles')
     .select('*')
@@ -13,7 +17,13 @@ export async function ensureBusinessProfile(ctx: OwnerContext, fallbackName: str
 
   const { data, error } = await ctx.supabase
     .from('business_profiles')
-    .insert({ owner_id: ctx.ownerId, business_name: fallbackName || 'My Business', full_name: fallbackName || '' })
+    .insert({
+      owner_id: ctx.ownerId,
+      business_name: fallbackName || 'My Business',
+      full_name: fallbackName || '',
+      business_type: extra?.businessType || null,
+      currency: extra?.currency || 'PHP',
+    })
     .select('*')
     .single()
   if (error) throw error
@@ -32,7 +42,7 @@ export async function getBusinessProfile(ctx: OwnerContext): Promise<BusinessPro
 
 export async function updateBusinessProfile(
   ctx: OwnerContext,
-  patch: Partial<Pick<BusinessProfile, 'business_name' | 'full_name' | 'currency' | 'invoice_banner_url'>>,
+  patch: Partial<Pick<BusinessProfile, 'business_name' | 'business_type' | 'full_name' | 'currency' | 'invoice_banner_url'>>,
 ): Promise<BusinessProfile> {
   const { data, error } = await ctx.supabase
     .from('business_profiles')
@@ -184,7 +194,6 @@ export interface ProductInput {
   unit?: string
   image_url?: string
   description?: string
-  storefront_meta?: Record<string, any> | null
 }
 
 export async function createProduct(ctx: OwnerContext, input: ProductInput): Promise<Product> {

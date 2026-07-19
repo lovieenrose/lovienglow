@@ -1,7 +1,6 @@
-// Resets all test data back to a clean baseline: wipes storefront orders
-// (and their reference/tracking-code sequences restart from 1), wipes POS
-// sales / incoming-stock purchase orders / stock adjustments, and restores
-// every product's stock_quantity / reorder_level to its original seed value.
+// Resets all test data back to a clean baseline: wipes POS sales /
+// incoming-stock purchase orders / stock adjustments, and restores every
+// product's stock_quantity / reorder_level to its original seed value.
 //
 // One-time setup required first: run supabase/reset_test_data_function.sql
 // in the Supabase SQL editor (creates the `reset_test_data` RPC this script

@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
-    "test:reset": "node scripts/reset-test-data.mjs",
-    "seed:storefront": "node scripts/seed-storefront-catalog.mjs"
+    "test:reset": "node scripts/reset-test-data.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

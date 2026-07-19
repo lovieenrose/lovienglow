@@ -2,6 +2,7 @@ export interface BusinessProfile {
   id: string
   owner_id: string
   business_name: string
+  business_type: string | null
   full_name: string
   currency: string
   invoice_banner_url: string | null
@@ -46,7 +47,6 @@ export interface Product {
   unit: string
   image_url: string | null
   description: string | null
-  storefront_meta: Record<string, any> | null
   created_at: string
   updated_at: string
   category?: Pick<Category, 'id' | 'name'> | null

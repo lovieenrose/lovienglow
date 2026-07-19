@@ -22,7 +22,7 @@ import {
   updateProductSetFn,
 } from '@/lib/serverFunctions'
 import type { Category, Product, ProductBatch, ProductSet, Supplier } from '@/lib/inventory/types'
-import { ImageUploaderGallery, ImageUploaderSingle } from '@/components/ImageUploader'
+import { ImageUploaderSingle } from '@/components/ImageUploader'
 import { ExportInventoryModal } from '@/components/inventory/ExportInventoryModal'
 
 export const Route = createFileRoute('/dashboard/inventory')({
@@ -299,22 +299,6 @@ function ProductModal({
     image_url: product?.image_url ?? '',
     description: product?.description ?? '',
   })
-  const storefrontMeta = product?.storefront_meta as
-    | {
-        gallery?: string[]
-        visibility?: 'visible' | 'hidden'
-        statusOverride?: 'auto' | 'out_of_stock' | 'coming_soon' | 'discontinued'
-        shortDescription?: string
-        [key: string]: unknown
-      }
-    | null
-    | undefined
-  const [gallery, setGallery] = useState<string[]>(storefrontMeta?.gallery ?? [])
-  const [visibility, setVisibility] = useState<'visible' | 'hidden'>(storefrontMeta?.visibility ?? 'visible')
-  const [statusOverride, setStatusOverride] = useState<'auto' | 'out_of_stock' | 'coming_soon' | 'discontinued'>(
-    storefrontMeta?.statusOverride ?? 'auto',
-  )
-  const [shortDescription, setShortDescription] = useState(storefrontMeta?.shortDescription ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -326,14 +310,10 @@ function ProductModal({
       const payload: Omit<typeof form, 'category_id' | 'supplier_id'> & {
         category_id: string | null
         supplier_id: string | null
-        storefront_meta?: Record<string, any>
       } = {
         ...form,
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
-      }
-      if (storefrontMeta) {
-        payload.storefront_meta = { ...storefrontMeta, gallery, visibility, statusOverride, shortDescription }
       }
       if (product) {
         const { stock_quantity: _stock, ...editablePayload } = payload
@@ -441,46 +421,6 @@ function ProductModal({
 
           {product && (
             <ProductBatchesSection product={product} onChanged={() => router.invalidate()} />
-          )}
-
-          {storefrontMeta ? (
-            <>
-              <div className="dash-section-divider">Public Website Media</div>
-              <ImageUploaderGallery value={gallery} onChange={setGallery} />
-              <label className="dash-field">
-                <span>Public website description</span>
-                <textarea
-                  value={shortDescription}
-                  placeholder="Short customer-facing description shown on the storefront product card and details view"
-                  onChange={(e) => setShortDescription(e.target.value)}
-                />
-              </label>
-
-              <div className="dash-section-divider">Storefront Settings</div>
-              <div className="dash-form-grid">
-                <label className="dash-field">
-                  <span>Visibility</span>
-                  <select value={visibility} onChange={(e) => setVisibility(e.target.value as typeof visibility)}>
-                    <option value="visible">Visible</option>
-                    <option value="hidden">Hidden</option>
-                  </select>
-                </label>
-                <label className="dash-field">
-                  <span>Status override</span>
-                  <select value={statusOverride} onChange={(e) => setStatusOverride(e.target.value as typeof statusOverride)}>
-                    <option value="auto">Automatic (based on stock)</option>
-                    <option value="out_of_stock">Force Out of Stock</option>
-                    <option value="coming_soon">Force Coming Soon</option>
-                    <option value="discontinued">Force Discontinued</option>
-                  </select>
-                </label>
-              </div>
-              <p className="dash-field__hint">
-                These settings only affect the public storefront display — they never change real stock, cost, or pricing data.
-              </p>
-            </>
-          ) : (
-            <p className="dash-field__hint">This product isn't listed on the public storefront, so media and display overrides aren't available.</p>
           )}
 
           {error && <p className="dash-login__error">{error}</p>}

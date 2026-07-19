@@ -7,7 +7,6 @@ import {
   PackagePlus,
   Receipt,
   Settings,
-  ShoppingBag,
   ShoppingCart,
   Users,
 } from 'lucide-react'
@@ -32,7 +31,6 @@ const navItems = [
   { to: '/dashboard/incoming-stock', label: 'Incoming Stock', icon: PackagePlus },
   { to: '/dashboard/inventory', label: 'Inventory', icon: Boxes },
   { to: '/dashboard/expenses', label: 'Expenses', icon: Receipt },
-  { to: '/dashboard/orders', label: 'Store Orders', icon: ShoppingBag },
   { to: '/dashboard/customers', label: 'Customers', icon: Users },
   { to: '/dashboard/emails', label: 'Emails', icon: Mail },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },

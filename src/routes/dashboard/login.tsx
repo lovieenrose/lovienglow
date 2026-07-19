@@ -10,7 +10,9 @@ function LoginPage() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<'sign_in' | 'sign_up'>('sign_in')
   const [businessName, setBusinessName] = useState('')
+  const [businessType, setBusinessType] = useState('')
   const [fullName, setFullName] = useState('')
+  const [currency, setCurrency] = useState('PHP')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -47,6 +49,8 @@ function LoginPage() {
             accessToken: data.session.access_token,
             refreshToken: data.session.refresh_token,
             fallbackName: businessName || fullName,
+            businessType,
+            currency,
           },
         })
         navigate({ to: '/dashboard' })
@@ -90,8 +94,27 @@ function LoginPage() {
               />
             </label>
             <label>
+              <span>Business Type</span>
+              <input
+                type="text"
+                placeholder="e.g. Retail, Wholesale, Skincare Clinic"
+                value={businessType}
+                onChange={(event) => setBusinessType(event.target.value)}
+              />
+            </label>
+            <label>
               <span>Your Full Name</span>
               <input type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} required />
+            </label>
+            <label>
+              <span>Currency</span>
+              <input
+                type="text"
+                placeholder="PHP"
+                value={currency}
+                onChange={(event) => setCurrency(event.target.value)}
+                required
+              />
             </label>
           </>
         )}

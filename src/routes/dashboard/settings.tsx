@@ -12,6 +12,7 @@ function SettingsPage() {
   const profile = Route.useLoaderData()
   const router = useRouter()
   const [businessName, setBusinessName] = useState(profile?.business_name ?? '')
+  const [businessType, setBusinessType] = useState(profile?.business_type ?? '')
   const [fullName, setFullName] = useState(profile?.full_name ?? '')
   const [currency, setCurrency] = useState(profile?.currency ?? 'PHP')
   const [saving, setSaving] = useState(false)
@@ -21,7 +22,7 @@ function SettingsPage() {
     e.preventDefault()
     setSaving(true)
     setSaved(false)
-    await updateBusinessProfileFn({ data: { businessName, fullName, currency } })
+    await updateBusinessProfileFn({ data: { businessName, businessType, fullName, currency } })
     await router.invalidate()
     setSaving(false)
     setSaved(true)
@@ -36,6 +37,14 @@ function SettingsPage() {
           <label>
             <span>Business Name</span>
             <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
+          </label>
+          <label>
+            <span>Business Type</span>
+            <input
+              placeholder="e.g. Retail, Wholesale, Skincare Clinic"
+              value={businessType}
+              onChange={(e) => setBusinessType(e.target.value)}
+            />
           </label>
           <label>
             <span>Full Name</span>

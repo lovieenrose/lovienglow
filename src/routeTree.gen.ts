@@ -9,27 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TrackRouteImport } from './routes/track'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardProductsRouteImport } from './routes/dashboard/products'
 import { Route as DashboardPosRouteImport } from './routes/dashboard/pos'
-import { Route as DashboardOrdersRouteImport } from './routes/dashboard/orders'
 import { Route as DashboardLoginRouteImport } from './routes/dashboard/login'
 import { Route as DashboardInventoryRouteImport } from './routes/dashboard/inventory'
 import { Route as DashboardIncomingStockRouteImport } from './routes/dashboard/incoming-stock'
 import { Route as DashboardExpensesRouteImport } from './routes/dashboard/expenses'
 import { Route as DashboardEmailsRouteImport } from './routes/dashboard/emails'
 import { Route as DashboardCustomersRouteImport } from './routes/dashboard/customers'
-import { Route as DashboardOrdersRefRouteImport } from './routes/dashboard/orders.$ref'
 
-const TrackRoute = TrackRouteImport.update({
-  id: '/track',
-  path: '/track',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -58,11 +50,6 @@ const DashboardProductsRoute = DashboardProductsRouteImport.update({
 const DashboardPosRoute = DashboardPosRouteImport.update({
   id: '/pos',
   path: '/pos',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardOrdersRoute = DashboardOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardLoginRoute = DashboardLoginRouteImport.update({
@@ -95,131 +82,100 @@ const DashboardCustomersRoute = DashboardCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardOrdersRefRoute = DashboardOrdersRefRouteImport.update({
-  id: '/$ref',
-  path: '/$ref',
-  getParentRoute: () => DashboardOrdersRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
-  '/track': typeof TrackRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/emails': typeof DashboardEmailsRoute
   '/dashboard/expenses': typeof DashboardExpensesRoute
   '/dashboard/incoming-stock': typeof DashboardIncomingStockRoute
   '/dashboard/inventory': typeof DashboardInventoryRoute
   '/dashboard/login': typeof DashboardLoginRoute
-  '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
   '/dashboard/pos': typeof DashboardPosRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/dashboard/orders/$ref': typeof DashboardOrdersRefRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/track': typeof TrackRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/emails': typeof DashboardEmailsRoute
   '/dashboard/expenses': typeof DashboardExpensesRoute
   '/dashboard/incoming-stock': typeof DashboardIncomingStockRoute
   '/dashboard/inventory': typeof DashboardInventoryRoute
   '/dashboard/login': typeof DashboardLoginRoute
-  '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
   '/dashboard/pos': typeof DashboardPosRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard': typeof DashboardIndexRoute
-  '/dashboard/orders/$ref': typeof DashboardOrdersRefRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
-  '/track': typeof TrackRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/emails': typeof DashboardEmailsRoute
   '/dashboard/expenses': typeof DashboardExpensesRoute
   '/dashboard/incoming-stock': typeof DashboardIncomingStockRoute
   '/dashboard/inventory': typeof DashboardInventoryRoute
   '/dashboard/login': typeof DashboardLoginRoute
-  '/dashboard/orders': typeof DashboardOrdersRouteWithChildren
   '/dashboard/pos': typeof DashboardPosRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/dashboard/orders/$ref': typeof DashboardOrdersRefRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/dashboard'
-    | '/track'
     | '/dashboard/customers'
     | '/dashboard/emails'
     | '/dashboard/expenses'
     | '/dashboard/incoming-stock'
     | '/dashboard/inventory'
     | '/dashboard/login'
-    | '/dashboard/orders'
     | '/dashboard/pos'
     | '/dashboard/products'
     | '/dashboard/settings'
     | '/dashboard/'
-    | '/dashboard/orders/$ref'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/track'
     | '/dashboard/customers'
     | '/dashboard/emails'
     | '/dashboard/expenses'
     | '/dashboard/incoming-stock'
     | '/dashboard/inventory'
     | '/dashboard/login'
-    | '/dashboard/orders'
     | '/dashboard/pos'
     | '/dashboard/products'
     | '/dashboard/settings'
     | '/dashboard'
-    | '/dashboard/orders/$ref'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
-    | '/track'
     | '/dashboard/customers'
     | '/dashboard/emails'
     | '/dashboard/expenses'
     | '/dashboard/incoming-stock'
     | '/dashboard/inventory'
     | '/dashboard/login'
-    | '/dashboard/orders'
     | '/dashboard/pos'
     | '/dashboard/products'
     | '/dashboard/settings'
     | '/dashboard/'
-    | '/dashboard/orders/$ref'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
-  TrackRoute: typeof TrackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/track': {
-      id: '/track'
-      path: '/track'
-      fullPath: '/track'
-      preLoaderRoute: typeof TrackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -260,13 +216,6 @@ declare module '@tanstack/react-router' {
       path: '/pos'
       fullPath: '/dashboard/pos'
       preLoaderRoute: typeof DashboardPosRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/orders': {
-      id: '/dashboard/orders'
-      path: '/orders'
-      fullPath: '/dashboard/orders'
-      preLoaderRoute: typeof DashboardOrdersRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/login': {
@@ -311,27 +260,8 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCustomersRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/dashboard/orders/$ref': {
-      id: '/dashboard/orders/$ref'
-      path: '/$ref'
-      fullPath: '/dashboard/orders/$ref'
-      preLoaderRoute: typeof DashboardOrdersRefRouteImport
-      parentRoute: typeof DashboardOrdersRoute
-    }
   }
 }
-
-interface DashboardOrdersRouteChildren {
-  DashboardOrdersRefRoute: typeof DashboardOrdersRefRoute
-}
-
-const DashboardOrdersRouteChildren: DashboardOrdersRouteChildren = {
-  DashboardOrdersRefRoute: DashboardOrdersRefRoute,
-}
-
-const DashboardOrdersRouteWithChildren = DashboardOrdersRoute._addFileChildren(
-  DashboardOrdersRouteChildren,
-)
 
 interface DashboardRouteChildren {
   DashboardCustomersRoute: typeof DashboardCustomersRoute
@@ -340,7 +270,6 @@ interface DashboardRouteChildren {
   DashboardIncomingStockRoute: typeof DashboardIncomingStockRoute
   DashboardInventoryRoute: typeof DashboardInventoryRoute
   DashboardLoginRoute: typeof DashboardLoginRoute
-  DashboardOrdersRoute: typeof DashboardOrdersRouteWithChildren
   DashboardPosRoute: typeof DashboardPosRoute
   DashboardProductsRoute: typeof DashboardProductsRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
@@ -354,7 +283,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardIncomingStockRoute: DashboardIncomingStockRoute,
   DashboardInventoryRoute: DashboardInventoryRoute,
   DashboardLoginRoute: DashboardLoginRoute,
-  DashboardOrdersRoute: DashboardOrdersRouteWithChildren,
   DashboardPosRoute: DashboardPosRoute,
   DashboardProductsRoute: DashboardProductsRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
@@ -368,7 +296,6 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
-  TrackRoute: TrackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

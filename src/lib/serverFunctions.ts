@@ -1,26 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { clearOwnerSession, establishOwnerSession, isOwnerAuthenticated, requireOwner } from './auth'
-import {
-  createOrder,
-  getOrder,
-  getOrderByTrackingCode,
-  listAllOrdersForExport,
-  listOrders,
-  updateOrder,
-  type ListOrdersFilters,
-} from './orders'
-import {
-  resendOrderEmail,
-  sendAdminNotification,
-  sendOrderDelivered,
-  sendOrderReceived,
-  sendOrderShipped,
-  sendPaymentConfirmed,
-  type OrderEmailType,
-} from './email'
 import { uploadInvoiceBanner, uploadPaymentProof, uploadProductImage } from './supabase'
-import { listPublicCatalog, redeemPromo, validatePromoCode } from './storefront'
 import {
   adjustProductStock,
   createCategory,
@@ -61,65 +42,6 @@ import { createExpense, deleteExpense, listExpenses, updateExpense } from './inv
 import { createPromo, deletePromo, listPromos, updatePromo } from './inventory/promos'
 import { getDashboardMetrics } from './inventory/dashboard'
 
-// ── Storefront ─────────────────────────────────────────────────────────
-
-export const listPublicCatalogFn = createServerFn({ method: 'GET' }).handler(async () => {
-  return listPublicCatalog()
-})
-
-export const validatePromoCodeFn = createServerFn({ method: 'POST' })
-  .inputValidator(
-    z.object({
-      code: z.string().min(1),
-      cartProductIds: z.array(z.string()),
-      subtotal: z.number().min(0),
-      customerEmail: z.string().optional(),
-    }),
-  )
-  .handler(async ({ data }) => {
-    return validatePromoCode(data.code, data)
-  })
-
-const orderItemSchema = z.object({
-  productId: z.string().optional(),
-  productSetId: z.string().optional(),
-  productName: z.string(),
-  unitPrice: z.number(),
-  quantity: z.number(),
-  lineTotal: z.number(),
-})
-
-const submitOrderSchema = z.object({
-  fullName: z.string().min(1),
-  contactNumber: z.string().min(1),
-  email: z.string().email(),
-  socialHandle: z.string(),
-  address: z.string().min(1),
-  courier: z.string(),
-  region: z.string(),
-  paymentMethod: z.string().min(1),
-  items: z.array(orderItemSchema).min(1),
-  subtotal: z.number(),
-  shippingFee: z.number(),
-  discount: z.number().min(0).optional(),
-  promoId: z.string().optional(),
-  promoCode: z.string().optional(),
-  total: z.number(),
-  receiptBase64: z.string().min(1),
-  receiptFilename: z.string().min(1),
-  receiptContentType: z.string().min(1),
-})
-
-export const submitOrderFn = createServerFn({ method: 'POST' })
-  .inputValidator(submitOrderSchema)
-  .handler(async ({ data }) => {
-    const { promoId, ...orderInput } = data
-    const order = await createOrder({ ...orderInput, discount: data.discount ?? 0 })
-    if (promoId) await redeemPromo(promoId, order.id, data.email || undefined)
-    await Promise.all([sendOrderReceived(order), sendAdminNotification(order)])
-    return order
-  })
-
 // ── Owner auth (Supabase Auth) ───────────────────────────────────────────
 // Sign-in/sign-up itself happens client-side against Supabase Auth (see
 // supabaseClient.ts). These server functions mirror the resulting session
@@ -127,11 +49,22 @@ export const submitOrderFn = createServerFn({ method: 'POST' })
 // build a request-scoped, RLS-respecting Supabase client.
 
 export const ownerEstablishSessionFn = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ accessToken: z.string(), refreshToken: z.string(), fallbackName: z.string().optional() }))
+  .inputValidator(
+    z.object({
+      accessToken: z.string(),
+      refreshToken: z.string(),
+      fallbackName: z.string().optional(),
+      businessType: z.string().optional(),
+      currency: z.string().optional(),
+    }),
+  )
   .handler(async ({ data }) => {
     const user = await establishOwnerSession(data.accessToken, data.refreshToken)
     const ctx = await requireOwner()
-    await ensureBusinessProfile(ctx, data.fallbackName || user.email || '')
+    await ensureBusinessProfile(ctx, data.fallbackName || user.email || '', {
+      businessType: data.businessType,
+      currency: data.currency,
+    })
     return { success: true as const }
   })
 
@@ -144,97 +77,6 @@ export const verifyOwnerFn = createServerFn({ method: 'GET' }).handler(async () 
   return { valid: await isOwnerAuthenticated() }
 })
 
-// ── Dashboard: legacy storefront orders ──────────────────────────────────
-
-const listFiltersSchema = z.object({
-  search: z.string().optional(),
-  orderStatus: z.string().optional(),
-  courier: z.string().optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
-  page: z.number().optional(),
-  pageSize: z.number().optional(),
-})
-
-export const getOrdersFn = createServerFn({ method: 'GET' })
-  .inputValidator(listFiltersSchema)
-  .handler(async ({ data }) => {
-    await requireOwner()
-    return listOrders(data as ListOrdersFilters)
-  })
-
-export const exportOrdersCsvFn = createServerFn({ method: 'GET' })
-  .inputValidator(listFiltersSchema)
-  .handler(async ({ data }) => {
-    await requireOwner()
-    const orders = await listAllOrdersForExport(data as ListOrdersFilters)
-    const headers = [
-      'Reference', 'Tracking Code', 'Placed At', 'Full Name', 'Contact Number', 'Email', 'Address', 'Courier', 'Region',
-      'Payment Method', 'Subtotal', 'Shipping Fee', 'Total', 'Order Status', 'Tracking Number',
-    ]
-    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
-    const rows = orders.map((order) =>
-      [
-        order.reference, order.tracking_code, order.placed_at, order.full_name, order.contact_number, order.email ?? '',
-        order.address, order.courier, order.region ?? '', order.payment_method, order.subtotal,
-        order.shipping_fee, order.total, order.order_status, order.tracking_number ?? '',
-      ].map(escape).join(','),
-    )
-    return [headers.join(','), ...rows].join('\n')
-  })
-
-export const getOrderFn = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ reference: z.string() }))
-  .handler(async ({ data }) => {
-    await requireOwner()
-    return getOrder(data.reference)
-  })
-
-const updateOrderSchema = z.object({
-  reference: z.string(),
-  orderStatus: z.enum(['pending_payment', 'processing', 'shipped', 'delivered', 'cancelled']).optional(),
-  trackingNumber: z.string().optional(),
-  internalNotes: z.string().optional(),
-  note: z.string().optional(),
-})
-
-export const updateOrderStatusFn = createServerFn({ method: 'POST' })
-  .inputValidator(updateOrderSchema)
-  .handler(async ({ data }) => {
-    await requireOwner()
-    const { reference, ...patch } = data
-    const updated = await updateOrder(reference, patch)
-
-    // sendOrderReceived fires at checkout (submitOrderFn), not here.
-    if (patch.orderStatus === 'processing') await sendPaymentConfirmed(updated)
-    if (patch.orderStatus === 'shipped') await sendOrderShipped(updated, updated.tracking_number ?? '')
-    if (patch.orderStatus === 'delivered') await sendOrderDelivered(updated)
-
-    return getOrder(reference)
-  })
-
-export const trackOrderFn = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ trackingCode: z.string().min(1) }))
-  .handler(async ({ data }) => {
-    return getOrderByTrackingCode(data.trackingCode)
-  })
-
-export const resendOrderEmailFn = createServerFn({ method: 'POST' })
-  .inputValidator(
-    z.object({
-      reference: z.string(),
-      emailType: z.enum(['order_received', 'payment_confirmed', 'packed', 'shipped', 'delivered', 'admin_notification']),
-    }),
-  )
-  .handler(async ({ data }) => {
-    await requireOwner()
-    const order = await getOrder(data.reference)
-    if (!order) throw new Error('Order not found')
-    await resendOrderEmail(order, data.emailType as OrderEmailType)
-    return getOrder(data.reference)
-  })
-
-
 // ── Business profile ──────────────────────────────────────────────────────
 
 export const getBusinessProfileFn = createServerFn({ method: 'GET' }).handler(async () => {
@@ -243,10 +85,22 @@ export const getBusinessProfileFn = createServerFn({ method: 'GET' }).handler(as
 })
 
 export const updateBusinessProfileFn = createServerFn({ method: 'POST' })
-  .inputValidator(z.object({ businessName: z.string().min(1), fullName: z.string().min(1), currency: z.string().min(1) }))
+  .inputValidator(
+    z.object({
+      businessName: z.string().min(1),
+      businessType: z.string().optional(),
+      fullName: z.string().min(1),
+      currency: z.string().min(1),
+    }),
+  )
   .handler(async ({ data }) => {
     const ctx = await requireOwner()
-    return updateBusinessProfile(ctx, { business_name: data.businessName, full_name: data.fullName, currency: data.currency })
+    return updateBusinessProfile(ctx, {
+      business_name: data.businessName,
+      business_type: data.businessType || null,
+      full_name: data.fullName,
+      currency: data.currency,
+    })
   })
 
 // ── Categories ─────────────────────────────────────────────────────────────
@@ -338,7 +192,6 @@ const productInputSchema = z.object({
   unit: z.string().optional(),
   image_url: z.string().optional(),
   description: z.string().optional(),
-  storefront_meta: z.record(z.string(), z.any()).nullable().optional(),
 })
 
 export const createProductFn = createServerFn({ method: 'POST' })
