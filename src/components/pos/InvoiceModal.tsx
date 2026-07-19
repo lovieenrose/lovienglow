@@ -264,6 +264,7 @@ export function InvoiceModal({
               <div><span className="dash-muted">Customer</span><br />{order.customer_name || 'Walk-in'}</div>
               <div><span className="dash-muted">Payment Method</span><br />{order.payment_method}</div>
               <div><span className="dash-muted">Payment Terms</span><br />Payment first before fulfillment</div>
+              {order.courier && <div><span className="dash-muted">Courier</span><br />{order.courier}</div>}
             </div>
             <table className="dash-invoice-preview__table">
               <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead>
@@ -280,7 +281,16 @@ export function InvoiceModal({
             </table>
             <div className="dash-invoice-preview__totals">
               <div><span>Subtotal (Products)</span><span>{formatPeso(displaySubtotal)}</span></div>
-              <div><span>Shipping Fee</span><span>{order.shipping_fee > 0 ? formatPeso(order.shipping_fee) : 'FREE'}</span></div>
+              <div>
+                <span>Shipping Fee{order.courier ? ` (${order.courier})` : ''}</span>
+                <span>
+                  {order.shipping_fee <= 0
+                    ? 'FREE'
+                    : order.shipping_paid_by === 'customer'
+                      ? `${formatPeso(order.shipping_fee)} — pay courier directly`
+                      : 'FREE (shipping on us)'}
+                </span>
+              </div>
               {order.discount > 0 && <div><span>Discount</span><span>-{formatPeso(order.discount)}</span></div>}
               <div className="dash-invoice-preview__due"><span>TOTAL AMOUNT DUE</span><span>{formatPeso(displayTotal)}</span></div>
             </div>

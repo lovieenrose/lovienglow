@@ -3,6 +3,7 @@ import { Plus, Search, ShoppingCart, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   completeSaleFn,
+  createExpenseFn,
   deleteSalesOrderFn,
   getBusinessProfileFn,
   listCategoriesFn,
@@ -38,6 +39,7 @@ export function formatPeso(value: number): string {
 }
 
 const PAYMENT_METHODS = ['Maribank', 'GoTyme', 'GCash']
+const COURIERS = ['Lalamove', 'J&T']
 
 interface CartLine {
   productId: string
@@ -110,6 +112,8 @@ function NewSaleView({
   const [setQuery, setSetQuery] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
   const [shippingFee, setShippingFee] = useState(0)
+  const [courier, setCourier] = useState('')
+  const [shippingPaidBy, setShippingPaidBy] = useState<'customer' | 'business'>('customer')
   const [promoCode, setPromoCode] = useState('')
   const [appliedPromo, setAppliedPromo] = useState<Promo | null>(null)
   const [customerName, setCustomerName] = useState('')
@@ -238,7 +242,11 @@ function NewSaleView({
     return 0
   }, [appliedPromo, cartHasTrigger, subtotal])
 
-  const total = Math.max(0, subtotal - discount) + shippingFee
+  // Shipping is never part of what this business collects through the POS:
+  // the customer pays the courier directly (COD), or the business shoulders
+  // it as free shipping (logged as an Expense instead — see checkout below).
+  // Either way it stays off Revenue/COGS/Margin.
+  const total = Math.max(0, subtotal - discount)
   const grossProfit = total - cogs
   const marginPct = total > 0 ? (grossProfit / total) * 100 : 0
 
@@ -253,12 +261,30 @@ function NewSaleView({
           paymentMethod,
           discount,
           shippingFee,
+          courier: courier || undefined,
+          shippingPaidBy,
           items: cart.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice })),
         },
       })
+      if (shippingPaidBy === 'business' && shippingFee > 0) {
+        try {
+          await createExpenseFn({
+            data: {
+              category: 'Shipping',
+              description: `Shipping shouldered for order ${order.order_number}${courier ? ` (${courier})` : ''}`,
+              amount: shippingFee,
+              expense_date: new Date().toISOString().slice(0, 10),
+            },
+          })
+        } catch {
+          // Sale already succeeded — a failed expense log shouldn't block checkout.
+        }
+      }
       setInvoiceOrder(order)
       setCart([])
       setShippingFee(0)
+      setCourier('')
+      setShippingPaidBy('customer')
       setPromoCode('')
       setAppliedPromo(null)
       setCustomerName('')
@@ -414,14 +440,43 @@ function NewSaleView({
         </label>
         <div className="dash-form-grid">
           <label className="dash-field">
-            <span>Shipping Fee</span>
-            <input type="number" min={0} step="0.01" value={shippingFee || ''} placeholder="0" onChange={(e) => setShippingFee(Number(e.target.value))} />
+            <span>Courier</span>
+            <select value={courier} onChange={(e) => setCourier(e.target.value)}>
+              <option value="">— None —</option>
+              {COURIERS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </label>
           <label className="dash-field">
-            <span>Promo / Discount Code</span>
-            <input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="e.g. FIRSTDAY" />
+            <span>Shipping Fee (for record)</span>
+            <input type="number" min={0} step="0.01" value={shippingFee || ''} placeholder="0" onChange={(e) => setShippingFee(Number(e.target.value))} />
           </label>
         </div>
+        <div className="dash-segmented">
+          <button
+            type="button"
+            className={`dash-segmented__btn ${shippingPaidBy === 'customer' ? 'is-active' : ''}`}
+            onClick={() => setShippingPaidBy('customer')}
+          >
+            Customer pays
+          </button>
+          <button
+            type="button"
+            className={`dash-segmented__btn ${shippingPaidBy === 'business' ? 'is-active' : ''}`}
+            onClick={() => setShippingPaidBy('business')}
+          >
+            I'll shoulder it (free shipping)
+          </button>
+        </div>
+        <p className="dash-field__hint">
+          {shippingPaidBy === 'customer'
+            ? "Shipping fee is for your records only — it's never added to the customer's total, since they pay the courier directly."
+            : "Free shipping for the customer — this amount will be logged as a Shipping expense when you check out."}
+        </p>
+
+        <label className="dash-field">
+          <span>Promo / Discount Code</span>
+          <input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="e.g. FIRSTDAY" />
+        </label>
         <button type="button" className="button button--outline button--wide" onClick={applyPromo}>
           <Plus size={13} /> Add Promo / Discount
         </button>
@@ -440,7 +495,14 @@ function NewSaleView({
 
         <div className="pos-cart__totals">
           <div><span>Subtotal</span><span>{formatPeso(subtotal)}</span></div>
-          <div><span>Shipping Fee</span><span>{shippingFee > 0 ? formatPeso(shippingFee) : 'FREE'}</span></div>
+          <div>
+            <span>Shipping Fee{courier ? ` (${courier})` : ''}</span>
+            <span>
+              {shippingFee > 0
+                ? `${formatPeso(shippingFee)} — ${shippingPaidBy === 'customer' ? 'customer pays' : 'you shoulder'}`
+                : 'None'}
+            </span>
+          </div>
           <div><span>Promo / Discount Code</span><span>{appliedPromo ? appliedPromo.code : 'None'}</span></div>
           <div><span>Discount</span><span>-{formatPeso(discount)}</span></div>
           <div><span>Total Revenue</span><span>{formatPeso(total)}</span></div>

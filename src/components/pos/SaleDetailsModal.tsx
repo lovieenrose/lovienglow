@@ -16,6 +16,13 @@ export function SaleDetailsModal({ order, onClose }: { order: SalesOrder; onClos
             <div><span className="dash-muted">Customer</span><br />{order.customer_name || 'Walk-in'}</div>
             <div><span className="dash-muted">Payment Method</span><br />{order.payment_method}</div>
             <div><span className="dash-muted">Date</span><br />{new Date(order.created_at).toLocaleString('en-PH')}</div>
+            <div><span className="dash-muted">Courier</span><br />{order.courier || '—'}</div>
+            <div>
+              <span className="dash-muted">Shipping Fee</span><br />
+              {order.shipping_fee > 0
+                ? `${formatPeso(order.shipping_fee)} (${order.shipping_paid_by === 'customer' ? 'customer pays' : 'shouldered by you'})`
+                : 'None'}
+            </div>
           </div>
 
           <div className="dash-table-wrap" style={{ border: 'none' }}>
@@ -37,7 +44,6 @@ export function SaleDetailsModal({ order, onClose }: { order: SalesOrder; onClos
 
           <div className="dash-financials">
             <div><span>Subtotal</span><span>{formatPeso(order.subtotal)}</span></div>
-            <div><span>Shipping Fee</span><span>{formatPeso(order.shipping_fee)}</span></div>
             <div><span>Discount</span><span>-{formatPeso(order.discount)}</span></div>
             <div><span>Total Cost (COGS)</span><span>{formatPeso(order.total_cost)}</span></div>
             <div><span>Gross Profit</span><span>{formatPeso(order.gross_profit)}</span></div>

@@ -146,6 +146,8 @@ export interface SalesOrder {
   subtotal: number
   discount: number
   shipping_fee: number
+  courier: string | null
+  shipping_paid_by: 'customer' | 'business'
   total: number
   total_cost: number
   gross_profit: number

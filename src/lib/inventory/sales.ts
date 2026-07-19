@@ -38,6 +38,8 @@ export interface CompleteSaleInput {
   customerContact?: string
   discount?: number
   shippingFee?: number
+  courier?: string
+  shippingPaidBy?: 'customer' | 'business'
   paymentMethod: string
   items: Array<{ productId: string; quantity: number; unitPrice?: number }>
 }
@@ -58,6 +60,8 @@ export async function completeSale(ctx: OwnerContext, input: CompleteSaleInput):
       unit_price: item.unitPrice ?? null,
     })),
     p_shipping_fee: input.shippingFee ?? 0,
+    p_courier: input.courier ?? null,
+    p_shipping_paid_by: input.shippingPaidBy ?? 'customer',
   })
   if (error) throw error
 

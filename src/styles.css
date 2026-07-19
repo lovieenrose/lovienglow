@@ -2030,6 +2030,7 @@ h1, h2, h3, h4 { line-height: 1.15; }
 }
 .dash-segmented__btn--add.is-active { background: #dcf3e2; border-color: #1f7a3d; color: #1f7a3d; }
 .dash-segmented__btn--remove.is-active { background: #f9d9d9; border-color: #a03030; color: #a03030; }
+.dash-segmented__btn.is-active { background: var(--deep-pink); border-color: var(--deep-pink); color: #fff; }
 
 .dash-current-qty { font-size: 14px; color: var(--ink); }
 .dash-current-qty b { font-size: 16px; }
