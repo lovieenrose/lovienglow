@@ -87,6 +87,27 @@ export async function reverseSale(ctx: OwnerContext, id: string): Promise<SalesO
   return order
 }
 
+// Permanently removes a sale from history. Only allowed once it's already
+// `reversed` — that's the step that restores stock — so a delete can never
+// silently leave inventory decremented with no record of why. Cascades to
+// sales_order_items via its FK; stock_adjustments audit rows are left as-is
+// (same as everywhere else in this app, they're an append-only log).
+export async function deleteSalesOrder(ctx: OwnerContext, id: string): Promise<void> {
+  const { data, error: fetchError } = await ctx.supabase
+    .from('sales_orders')
+    .select('status')
+    .eq('id', id)
+    .eq('owner_id', ctx.ownerId)
+    .single()
+  if (fetchError) throw fetchError
+  if ((data as { status: SalesOrder['status'] }).status !== 'reversed') {
+    throw new Error('Only reversed sales can be deleted — reverse the sale first to restore stock.')
+  }
+
+  const { error } = await ctx.supabase.from('sales_orders').delete().eq('id', id).eq('owner_id', ctx.ownerId)
+  if (error) throw error
+}
+
 // Purely cosmetic override of what the printed/downloaded invoice shows —
 // e.g. collapsing a bundle's real per-item rows (Tirzepatide, Bac Water,
 // alcohol pads, ...) down to a single "TR15 Complete Set" line. Never

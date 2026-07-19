@@ -3,6 +3,7 @@ import { Plus, Search, ShoppingCart, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   completeSaleFn,
+  deleteSalesOrderFn,
   getBusinessProfileFn,
   listCategoriesFn,
   listPromosFn,
@@ -492,6 +493,12 @@ function HistoryView({
     await onChanged()
   }
 
+  const remove = async (order: SalesOrder) => {
+    if (!confirm(`Permanently delete order ${order.order_number}? This cannot be undone.`)) return
+    await deleteSalesOrderFn({ data: { id: order.id } })
+    await onChanged()
+  }
+
   if (salesOrders.length === 0) {
     return (
       <div className="dash-empty-card">
@@ -527,8 +534,10 @@ function HistoryView({
                 <div className="dash-row-actions">
                   <button className="dash-link-btn" onClick={() => setDetailsOrder(order)}>Details</button>
                   <button className="dash-link-btn" onClick={() => setInvoiceOrder(order)}>Invoice</button>
-                  {order.status !== 'reversed' && (
+                  {order.status !== 'reversed' ? (
                     <button className="dash-link-btn dash-link-btn--danger" onClick={() => reverse(order)}>Reverse</button>
+                  ) : (
+                    <button className="dash-link-btn dash-link-btn--danger" onClick={() => remove(order)}>Delete</button>
                   )}
                 </div>
               </td>

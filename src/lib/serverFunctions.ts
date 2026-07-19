@@ -37,7 +37,15 @@ import {
   receivePurchaseOrder,
   updatePurchaseOrderStatus,
 } from './inventory/purchasing'
-import { completeSale, getSalesOrder, listSalesOrders, markSalePaid, reverseSale, updateSaleInvoiceItems } from './inventory/sales'
+import {
+  completeSale,
+  deleteSalesOrder,
+  getSalesOrder,
+  listSalesOrders,
+  markSalePaid,
+  reverseSale,
+  updateSaleInvoiceItems,
+} from './inventory/sales'
 import { createExpense, deleteExpense, listExpenses, updateExpense } from './inventory/expenses'
 import { createPromo, deletePromo, listPromos, updatePromo } from './inventory/promos'
 import { getDashboardMetrics } from './inventory/dashboard'
@@ -457,6 +465,14 @@ export const reverseSaleFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const ctx = await requireOwner()
     return reverseSale(ctx, data.id)
+  })
+
+export const deleteSalesOrderFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    await deleteSalesOrder(ctx, data.id)
+    return { success: true as const }
   })
 
 function base64ToBytes(base64: string): Uint8Array {
