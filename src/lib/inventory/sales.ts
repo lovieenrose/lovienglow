@@ -86,3 +86,26 @@ export async function reverseSale(ctx: OwnerContext, id: string): Promise<SalesO
   if (!order) throw new Error('Sales order not found after reversal')
   return order
 }
+
+// Purely cosmetic override of what the printed/downloaded invoice shows —
+// e.g. collapsing a bundle's real per-item rows (Tirzepatide, Bac Water,
+// alcohol pads, ...) down to a single "TR15 Complete Set" line. Never
+// touches sales_order_items, so COGS/profit/dashboard metrics (the "company
+// data") stay derived from the real, fully itemized sale regardless of how
+// the invoice is customized. Pass `null` to revert to the itemized default.
+export async function updateSaleInvoiceItems(
+  ctx: OwnerContext,
+  id: string,
+  invoiceItems: SalesOrder['invoice_items'],
+): Promise<SalesOrder> {
+  const { error } = await ctx.supabase
+    .from('sales_orders')
+    .update({ invoice_items: invoiceItems })
+    .eq('id', id)
+    .eq('owner_id', ctx.ownerId)
+  if (error) throw error
+
+  const order = await getSalesOrder(ctx, id)
+  if (!order) throw new Error('Sales order not found after updating invoice items')
+  return order
+}

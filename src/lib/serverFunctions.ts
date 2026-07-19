@@ -37,7 +37,7 @@ import {
   receivePurchaseOrder,
   updatePurchaseOrderStatus,
 } from './inventory/purchasing'
-import { completeSale, getSalesOrder, listSalesOrders, markSalePaid, reverseSale } from './inventory/sales'
+import { completeSale, getSalesOrder, listSalesOrders, markSalePaid, reverseSale, updateSaleInvoiceItems } from './inventory/sales'
 import { createExpense, deleteExpense, listExpenses, updateExpense } from './inventory/expenses'
 import { createPromo, deletePromo, listPromos, updatePromo } from './inventory/promos'
 import { getDashboardMetrics } from './inventory/dashboard'
@@ -436,6 +436,20 @@ export const markSalePaidFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const ctx = await requireOwner()
     return markSalePaid(ctx, data.id, data.receiptUrl)
+  })
+
+export const updateSaleInvoiceItemsFn = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      id: z.string(),
+      invoiceItems: z
+        .array(z.object({ label: z.string().min(1), quantity: z.number().min(0), unit_price: z.number().min(0) }))
+        .nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    return updateSaleInvoiceItems(ctx, data.id, data.invoiceItems)
   })
 
 export const reverseSaleFn = createServerFn({ method: 'POST' })

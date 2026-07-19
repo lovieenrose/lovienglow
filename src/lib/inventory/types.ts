@@ -157,6 +157,15 @@ export interface SalesOrder {
   created_at: string
   updated_at: string
   items?: SalesOrderItem[]
+  invoice_items: InvoiceLineItem[] | null
+}
+
+// A cosmetic override of what the printed invoice shows — see
+// updateSaleInvoiceItems in lib/inventory/sales.ts.
+export interface InvoiceLineItem {
+  label: string
+  quantity: number
+  unit_price: number
 }
 
 export interface SalesOrderItem {

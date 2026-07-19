@@ -1,9 +1,139 @@
-import { Download, Image as ImageIcon, X } from 'lucide-react'
+import { Download, Image as ImageIcon, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
-import { markSalePaidFn, uploadInvoiceBannerFn, uploadPaymentProofFn } from '@/lib/serverFunctions'
-import type { BusinessProfile, SalesOrder } from '@/lib/inventory/types'
+import { markSalePaidFn, updateSaleInvoiceItemsFn, uploadInvoiceBannerFn, uploadPaymentProofFn } from '@/lib/serverFunctions'
+import type { BusinessProfile, InvoiceLineItem, SalesOrder } from '@/lib/inventory/types'
 import { formatPeso } from '@/routes/dashboard/pos'
+
+function itemizedDefault(order: SalesOrder): InvoiceLineItem[] {
+  return (order.items ?? []).map((item) => ({
+    label: item.product_name,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+  }))
+}
+
+function InvoiceItemsEditor({ order, onSaved }: { order: SalesOrder; onSaved: (order: SalesOrder) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<InvoiceLineItem[]>(order.invoice_items ?? itemizedDefault(order))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const isCustomized = Boolean(order.invoice_items && order.invoice_items.length > 0)
+
+  const startEditing = () => {
+    setDraft(isCustomized ? (order.invoice_items as InvoiceLineItem[]) : itemizedDefault(order))
+    setError('')
+    setEditing(true)
+  }
+
+  const addLine = () => setDraft((prev) => [...prev, { label: '', quantity: 1, unit_price: 0 }])
+  const removeLine = (i: number) => setDraft((prev) => prev.filter((_, idx) => idx !== i))
+  const updateLine = (i: number, patch: Partial<InvoiceLineItem>) =>
+    setDraft((prev) => prev.map((line, idx) => (idx === i ? { ...line, ...patch } : line)))
+
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      const cleaned = draft.filter((line) => line.label.trim().length > 0)
+      const updated = await updateSaleInvoiceItemsFn({ data: { id: order.id, invoiceItems: cleaned } })
+      onSaved(updated)
+      setEditing(false)
+    } catch {
+      setError('Could not save invoice items.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const resetToItemized = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await updateSaleInvoiceItemsFn({ data: { id: order.id, invoiceItems: null } })
+      onSaved(updated)
+      setDraft(itemizedDefault(updated))
+      setEditing(false)
+    } catch {
+      setError('Could not reset invoice items.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="dash-field">
+        <span>Invoice Items</span>
+        <button type="button" className="button button--outline button--wide" onClick={startEditing}>
+          <Pencil size={14} /> Customize Invoice Items
+        </button>
+        {isCustomized && (
+          <p className="dash-field__hint">Showing a customized invoice — your real per-item sale record is unaffected.</p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="dash-field dash-invoice-editor">
+      <span>Customize Invoice Items</span>
+      <p className="dash-field__hint">
+        Replace the itemized breakdown with whatever you want printed (e.g. one "TR15 Complete Set" line instead
+        of every component). This only changes what's shown on the invoice — your real sales/COGS data is unaffected.
+      </p>
+      {draft.map((line, i) => (
+        <div className="dash-invoice-editor__row" key={i}>
+          <input
+            type="text"
+            placeholder="Item label"
+            value={line.label}
+            onChange={(e) => updateLine(i, { label: e.target.value })}
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder="Qty"
+            value={line.quantity}
+            onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })}
+          />
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder="Unit price"
+            value={line.unit_price}
+            onChange={(e) => updateLine(i, { unit_price: Number(e.target.value) })}
+          />
+          <button type="button" className="dash-line-item__remove" onClick={() => removeLine(i)}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      <button type="button" className="button button--outline" onClick={addLine}>
+        <Plus size={13} /> Add Line
+      </button>
+      {error && <p className="dash-login__error">{error}</p>}
+      <div className="dash-invoice-editor__actions">
+        <button type="button" className="button button--outline" onClick={() => setEditing(false)} disabled={saving}>
+          Cancel
+        </button>
+        <button type="button" className="button button--outline" onClick={resetToItemized} disabled={saving}>
+          Reset to itemized
+        </button>
+        <button
+          type="button"
+          className="button button--dark"
+          onClick={save}
+          disabled={saving || draft.every((l) => !l.label.trim())}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function fileToBase64(file: File): Promise<{ base64: string; contentType: string }> {
   return new Promise((resolve, reject) => {
@@ -42,6 +172,10 @@ export function InvoiceModal({
   const [marking, setMarking] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
+
+  const displayItems = order.invoice_items && order.invoice_items.length > 0 ? order.invoice_items : itemizedDefault(order)
+  const displaySubtotal = displayItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
+  const displayTotal = Math.max(0, displaySubtotal - order.discount) + order.shipping_fee
 
   const handleProofUpload = async (file: File) => {
     setUploadingProof(true)
@@ -134,21 +268,21 @@ export function InvoiceModal({
             <table className="dash-invoice-preview__table">
               <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Amount</th></tr></thead>
               <tbody>
-                {order.items?.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.product_name}</td>
+                {displayItems.map((item, i) => (
+                  <tr key={i}>
+                    <td>{item.label}</td>
                     <td>{item.quantity}</td>
                     <td>{formatPeso(item.unit_price)}</td>
-                    <td>{formatPeso(item.line_revenue)}</td>
+                    <td>{formatPeso(item.quantity * item.unit_price)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <div className="dash-invoice-preview__totals">
-              <div><span>Subtotal (Products)</span><span>{formatPeso(order.subtotal)}</span></div>
+              <div><span>Subtotal (Products)</span><span>{formatPeso(displaySubtotal)}</span></div>
               <div><span>Shipping Fee</span><span>{order.shipping_fee > 0 ? formatPeso(order.shipping_fee) : 'FREE'}</span></div>
               {order.discount > 0 && <div><span>Discount</span><span>-{formatPeso(order.discount)}</span></div>}
-              <div className="dash-invoice-preview__due"><span>TOTAL AMOUNT DUE</span><span>{formatPeso(order.total)}</span></div>
+              <div className="dash-invoice-preview__due"><span>TOTAL AMOUNT DUE</span><span>{formatPeso(displayTotal)}</span></div>
             </div>
             <p className="dash-invoice-preview__note">Thank you for your order. Please send your payment receipt to complete confirmation.</p>
           </div>
@@ -157,6 +291,8 @@ export function InvoiceModal({
             <button className="button button--outline button--wide" onClick={downloadPng} disabled={downloading}>
               <Download size={14} /> {downloading ? 'Generating…' : 'Download Invoice (PNG)'}
             </button>
+
+            <InvoiceItemsEditor order={order} onSaved={onChanged} />
 
             <div className="dash-field">
               <span>Invoice Banner</span>
