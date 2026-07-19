@@ -155,3 +155,24 @@ export async function updateSaleInvoiceTitle(
   if (!order) throw new Error('Sales order not found after updating invoice title')
   return order
 }
+
+// Optional, editable discount line shown on the invoice — entirely separate
+// from the real transaction discount (sales_orders.discount, set by promo
+// codes at checkout), which stays untouched for company data/COGS/margin.
+// Pass `null` to remove the invoice's discount line entirely.
+export async function updateSaleInvoiceDiscount(
+  ctx: OwnerContext,
+  id: string,
+  invoiceDiscount: number | null,
+): Promise<SalesOrder> {
+  const { error } = await ctx.supabase
+    .from('sales_orders')
+    .update({ invoice_discount: invoiceDiscount })
+    .eq('id', id)
+    .eq('owner_id', ctx.ownerId)
+  if (error) throw error
+
+  const order = await getSalesOrder(ctx, id)
+  if (!order) throw new Error('Sales order not found after updating invoice discount')
+  return order
+}

@@ -1,7 +1,13 @@
 import { Download, Image as ImageIcon, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
-import { markSalePaidFn, updateSaleInvoiceItemsFn, updateSaleInvoiceTitleFn, uploadPaymentProofFn } from '@/lib/serverFunctions'
+import {
+  markSalePaidFn,
+  updateSaleInvoiceDiscountFn,
+  updateSaleInvoiceItemsFn,
+  updateSaleInvoiceTitleFn,
+  uploadPaymentProofFn,
+} from '@/lib/serverFunctions'
 import type { BusinessProfile, InvoiceLineItem, SalesOrder } from '@/lib/inventory/types'
 import { formatPeso } from '@/routes/dashboard/pos'
 
@@ -196,6 +202,80 @@ function InvoiceTitleEditor({
   )
 }
 
+function InvoiceDiscountEditor({ order, onSaved }: { order: SalesOrder; onSaved: (order: SalesOrder) => void }) {
+  const hasDiscount = order.invoice_discount != null
+  const [editing, setEditing] = useState(false)
+  const [amount, setAmount] = useState(order.invoice_discount ?? 0)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const commit = async (value: number | null) => {
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await updateSaleInvoiceDiscountFn({ data: { id: order.id, invoiceDiscount: value } })
+      onSaved(updated)
+      setEditing(false)
+    } catch {
+      setError('Could not save invoice discount.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!hasDiscount && !editing) {
+    return (
+      <div className="dash-field">
+        <span>Invoice Discount</span>
+        <button
+          type="button"
+          className="button button--outline button--wide"
+          onClick={() => {
+            setAmount(0)
+            setEditing(true)
+          }}
+        >
+          <Plus size={13} /> Add Discount
+        </button>
+        <p className="dash-field__hint">
+          Optional — this is independent of the real discount applied at checkout. It only affects what's printed here.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="dash-field">
+      <span>Invoice Discount</span>
+      <div className="dash-invoice-editor__row" style={{ marginTop: 0 }}>
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          value={amount}
+          disabled={saving}
+          onChange={(e) => setAmount(Number(e.target.value))}
+        />
+        <button type="button" className="button button--dark" disabled={saving} onClick={() => void commit(amount)}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          type="button"
+          className="button button--outline"
+          disabled={saving}
+          onClick={() => {
+            if (hasDiscount) void commit(null)
+            else setEditing(false)
+          }}
+        >
+          Remove
+        </button>
+      </div>
+      {error && <p className="dash-login__error">{error}</p>}
+    </div>
+  )
+}
+
 function fileToBase64(file: File): Promise<{ base64: string; contentType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -235,7 +315,8 @@ export function InvoiceModal({
 
   const displayItems = order.invoice_items && order.invoice_items.length > 0 ? order.invoice_items : itemizedDefault(order)
   const displaySubtotal = displayItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const displayTotal = Math.max(0, displaySubtotal - order.discount)
+  const displayDiscount = order.invoice_discount ?? 0
+  const displayTotal = Math.max(0, displaySubtotal - displayDiscount)
 
   const handleProofUpload = async (file: File) => {
     setUploadingProof(true)
@@ -336,7 +417,9 @@ export function InvoiceModal({
                         : 'FREE (shipping on us)'}
                 </span>
               </div>
-              {order.discount > 0 && <div><span>Discount</span><span>-{formatPeso(order.discount)}</span></div>}
+              {order.invoice_discount != null && (
+                <div><span>Discount</span><span>-{formatPeso(order.invoice_discount)}</span></div>
+              )}
               <div className="dash-invoice-preview__due"><span>TOTAL AMOUNT DUE</span><span>{formatPeso(displayTotal)}</span></div>
             </div>
             <p className="dash-invoice-preview__note">Thank you for your order. Please send your payment receipt to complete confirmation.</p>
@@ -350,6 +433,8 @@ export function InvoiceModal({
             <InvoiceItemsEditor order={order} onSaved={onChanged} />
 
             <InvoiceTitleEditor order={order} defaultTitle={businessProfile?.business_name ?? 'Invoice'} onSaved={onChanged} />
+
+            <InvoiceDiscountEditor order={order} onSaved={onChanged} />
 
             {order.status !== 'reversed' && (
               <div className="dash-field">

@@ -160,6 +160,7 @@ export interface SalesOrder {
   items?: SalesOrderItem[]
   invoice_items: InvoiceLineItem[] | null
   invoice_title: string | null
+  invoice_discount: number | null
 }
 
 // A cosmetic override of what the printed invoice shows — see

@@ -44,6 +44,7 @@ import {
   listSalesOrders,
   markSalePaid,
   reverseSale,
+  updateSaleInvoiceDiscount,
   updateSaleInvoiceItems,
   updateSaleInvoiceTitle,
 } from './inventory/sales'
@@ -468,6 +469,13 @@ export const updateSaleInvoiceTitleFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const ctx = await requireOwner()
     return updateSaleInvoiceTitle(ctx, data.id, data.invoiceTitle)
+  })
+
+export const updateSaleInvoiceDiscountFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string(), invoiceDiscount: z.number().min(0).nullable() }))
+  .handler(async ({ data }) => {
+    const ctx = await requireOwner()
+    return updateSaleInvoiceDiscount(ctx, data.id, data.invoiceDiscount)
   })
 
 export const reverseSaleFn = createServerFn({ method: 'POST' })
