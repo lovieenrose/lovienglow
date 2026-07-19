@@ -70,6 +70,14 @@ body {
 img, svg { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: none; -webkit-tap-highlight-color: transparent; }
+
+/* Plain number inputs everywhere — no native up/down spinner arrows. */
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 a { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
 main { overflow: clip; }
 h1, h2, h3, h4 { line-height: 1.15; }

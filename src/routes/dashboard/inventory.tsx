@@ -42,6 +42,14 @@ function formatPeso(value: number): string {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value)
 }
 
+// The oldest batch with stock remaining is the one FIFO will sell from next,
+// so it's the "current" cost — products.cost_price is only a stale fallback
+// once a product has batches (see product_batch_costing_migration.sql).
+function effectiveCostPrice(product: Product): number {
+  const activeBatch = product.batches?.find((b) => b.quantity > 0)
+  return activeBatch ? activeBatch.cost_price : product.cost_price
+}
+
 function stockBadgeClass(product: Product): string {
   if (product.stock_quantity <= 0) return 'dash-badge--stock-out'
   if (product.stock_quantity <= product.reorder_level) return 'dash-badge--stock-low'
@@ -159,7 +167,7 @@ function InventoryPage() {
                         </td>
                         <td>{product.sku ?? '—'}</td>
                         <td>{product.category?.name ?? '—'}</td>
-                        <td>{formatPeso(product.cost_price)}</td>
+                        <td>{formatPeso(effectiveCostPrice(product))}</td>
                         <td>{formatPeso(product.selling_price)}</td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -276,13 +284,14 @@ function ProductModal({
   onSaved: () => void
 }) {
   const router = useRouter()
+  const hasActiveBatches = product?.batches?.some((b) => b.quantity > 0) ?? false
   const [form, setForm] = useState({
     name: product?.name ?? '',
     sku: product?.sku ?? '',
     barcode: product?.barcode ?? '',
     category_id: product?.category_id ?? '',
     supplier_id: product?.supplier_id ?? '',
-    cost_price: product?.cost_price ?? 0,
+    cost_price: product ? effectiveCostPrice(product) : 0,
     selling_price: product?.selling_price ?? 0,
     stock_quantity: product?.stock_quantity ?? 0,
     reorder_level: product?.reorder_level ?? 5,
@@ -379,10 +388,18 @@ function ProductModal({
                 {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
-            <label className="dash-field">
+            <label className={`dash-field ${hasActiveBatches ? 'dash-field--locked' : ''}`}>
               <span>Cost price *</span>
-              <input type="number" step="0.01" min={0} required value={form.cost_price}
-                onChange={(e) => setForm({ ...form, cost_price: Number(e.target.value) })} />
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                required
+                disabled={hasActiveBatches}
+                title={hasActiveBatches ? 'Computed from the oldest active batch below' : undefined}
+                value={form.cost_price}
+                onChange={(e) => setForm({ ...form, cost_price: Number(e.target.value) })}
+              />
             </label>
             <label className="dash-field">
               <span>Selling price *</span>
@@ -416,8 +433,8 @@ function ProductModal({
           </div>
           {product && (
             <p className="dash-field__hint">
-              {(product.batches?.length ?? 0) > 0
-                ? 'Stock quantity is locked here — it\'s computed automatically from the batches below.'
+              {hasActiveBatches
+                ? 'Stock quantity and cost price are locked here — both are computed automatically from the batches below (cost follows the oldest active batch, next up for FIFO).'
                 : 'Stock quantity is locked here — use "Adjust Stock" for manual corrections so every change stays audited.'}
             </p>
           )}
@@ -579,7 +596,18 @@ function ProductBatchesSection({ product, onChanged }: { product: Product; onCha
         />
       ))}
 
-      <div className="dash-batch-row">
+      <div
+        className="dash-batch-row"
+        onKeyDown={(e) => {
+          // This section lives inside the outer "Edit Product" <form> — an
+          // Enter keypress here would otherwise submit that form (saving
+          // just the top-level product fields and closing the modal),
+          // silently discarding whatever batch draft hadn't been added yet.
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          if (!adding && newBatch.batch_name.trim()) void addBatch()
+        }}
+      >
         <input
           type="text"
           placeholder="Batch name, e.g. June Batch"
@@ -644,7 +672,18 @@ function BatchRow({
   }, [batch])
 
   return (
-    <div className="dash-batch-row">
+    <div
+      className="dash-batch-row"
+      onKeyDown={(e) => {
+        // Same reasoning as the "add new batch" row: this lives inside the
+        // outer "Edit Product" <form>, so Enter must commit the field
+        // (blur) instead of submitting the whole product form and skipping
+        // whatever hadn't been blurred yet.
+        if (e.key !== 'Enter') return
+        e.preventDefault()
+        ;(document.activeElement as HTMLElement | null)?.blur()
+      }}
+    >
       <input
         type="text"
         value={name}
