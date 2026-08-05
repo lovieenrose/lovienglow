@@ -3,6 +3,9 @@ import type { SalesOrder } from '@/lib/inventory/types'
 import { formatPeso } from '@/routes/dashboard/pos'
 
 export function SaleDetailsModal({ order, onClose }: { order: SalesOrder; onClose: () => void }) {
+  const directCourierShipping = order.courier === 'Lalamove (Pay Courier Directly)'
+  const freeShippingPromo = !directCourierShipping && order.shipping_paid_by === 'business' && order.shipping_fee > 0
+
   return (
     <div className="dash-modal-overlay" onClick={onClose}>
       <div className="dash-modal dash-modal--wide" onClick={(e) => e.stopPropagation()}>
@@ -19,10 +22,10 @@ export function SaleDetailsModal({ order, onClose }: { order: SalesOrder; onClos
             <div><span className="dash-muted">Courier</span><br />{order.courier || '—'}</div>
             <div>
               <span className="dash-muted">Shipping Fee</span><br />
-              {order.courier === 'Lalamove'
+              {directCourierShipping
                 ? 'Pay courier directly'
                 : order.shipping_fee > 0
-                  ? `${formatPeso(order.shipping_fee)} (${order.shipping_paid_by === 'customer' ? 'customer pays' : 'shouldered by you'})`
+                  ? `${formatPeso(order.shipping_fee)} (${freeShippingPromo ? 'free shipping promo' : 'added to invoice'})`
                   : 'None'}
             </div>
           </div>
@@ -47,6 +50,12 @@ export function SaleDetailsModal({ order, onClose }: { order: SalesOrder; onClos
           <div className="dash-financials">
             <div><span>Subtotal</span><span>{formatPeso(order.subtotal)}</span></div>
             <div><span>Discount</span><span>-{formatPeso(order.discount)}</span></div>
+            {order.shipping_fee > 0 && !directCourierShipping && (
+              <div><span>Shipping Fee</span><span>{formatPeso(order.shipping_fee)}</span></div>
+            )}
+            {freeShippingPromo && (
+              <div><span>Free Shipping Promo</span><span>-{formatPeso(order.shipping_fee)}</span></div>
+            )}
             <div><span>Total Cost (COGS)</span><span>{formatPeso(order.total_cost)}</span></div>
             <div><span>Gross Profit</span><span>{formatPeso(order.gross_profit)}</span></div>
             <div><span>Margin</span><span>{order.margin_pct.toFixed(2)}%</span></div>

@@ -1408,13 +1408,6 @@ h1, h2, h3, h4 { line-height: 1.15; }
   line-height: 1.65;
 }
 .checkout-notice strong { font-weight: 700; }
-/* Lalamove-specific notice — warm amber tint to distinguish from standard note */
-.checkout-notice--lalamove {
-  background: #fef9ec;
-  color: #7a5c00;
-  border: 1px solid #f0d97a;
-}
-.checkout-notice--lalamove strong { font-weight: 700; }
 .promo-row { display: flex; gap: 8px; margin-top: var(--space-sm); }
 .promo-row input {
   flex: 1; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px;
@@ -1836,6 +1829,8 @@ h1, h2, h3, h4 { line-height: 1.15; }
   border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 9px 12px; font-family: var(--sans); font-size: 14px; color: var(--ink);
 }
 .dash-field textarea { resize: vertical; min-height: 64px; }
+.dash-check-row { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-light); }
+.dash-check-row input { width: 16px; height: 16px; accent-color: var(--deep-pink); }
 
 .dash-line-items { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .dash-line-item { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: center; min-width: 0; }

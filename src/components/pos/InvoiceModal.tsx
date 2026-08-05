@@ -317,8 +317,11 @@ export function InvoiceModal({
 
   const displayItems = order.invoice_items && order.invoice_items.length > 0 ? order.invoice_items : itemizedDefault(order)
   const displaySubtotal = displayItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
-  const displayDiscount = order.invoice_discount ?? 0
-  const displayTotal = Math.max(0, displaySubtotal - displayDiscount)
+  const displayDiscount = order.invoice_discount ?? order.discount
+  const directCourierShipping = order.courier === 'Lalamove (Pay Courier Directly)'
+  const freeShippingPromo = !directCourierShipping && order.shipping_paid_by === 'business' && order.shipping_fee > 0
+  const displayShippingCharge = !directCourierShipping && !freeShippingPromo ? order.shipping_fee : 0
+  const displayTotal = Math.max(0, displaySubtotal - displayDiscount) + displayShippingCharge
 
   const handleProofUpload = async (file: File) => {
     setUploadingProof(true)
@@ -408,19 +411,20 @@ export function InvoiceModal({
             <div className="dash-invoice-preview__totals">
               <div><span>Subtotal (Products)</span><span>{formatPeso(displaySubtotal)}</span></div>
               <div>
-                <span>Shipping Fee{order.courier ? ` (${order.courier})` : ''}</span>
+                <span>Shipping Fee</span>
                 <span>
-                  {order.courier === 'Lalamove'
+                  {directCourierShipping
                     ? 'Pay courier directly'
                     : order.shipping_fee <= 0
                       ? 'FREE'
-                      : order.shipping_paid_by === 'customer'
-                        ? `${formatPeso(order.shipping_fee)} — pay courier directly`
-                        : 'FREE (shipping on us)'}
+                      : formatPeso(order.shipping_fee)}
                 </span>
               </div>
-              {order.invoice_discount != null && (
-                <div><span>Discount</span><span>-{formatPeso(order.invoice_discount)}</span></div>
+              {freeShippingPromo && (
+                <div><span>Free Shipping Promo</span><span>-{formatPeso(order.shipping_fee)}</span></div>
+              )}
+              {displayDiscount > 0 && (
+                <div><span>Discount</span><span>-{formatPeso(displayDiscount)}</span></div>
               )}
               <div className="dash-invoice-preview__due"><span>TOTAL AMOUNT DUE</span><span>{formatPeso(displayTotal)}</span></div>
             </div>

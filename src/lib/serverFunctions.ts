@@ -434,6 +434,7 @@ export const completeSaleFn = createServerFn({ method: 'POST' })
       shippingFee: z.number().min(0).optional(),
       courier: z.string().optional(),
       shippingPaidBy: z.enum(['customer', 'business']).optional(),
+      orderCreatedAt: z.string().optional(),
       paymentMethod: z.string().min(1),
       items: z.array(z.object({ productId: z.string(), quantity: z.number().int().min(1), unitPrice: z.number().min(0).optional() })).min(1),
     }),

@@ -40,6 +40,7 @@ export interface CompleteSaleInput {
   shippingFee?: number
   courier?: string
   shippingPaidBy?: 'customer' | 'business'
+  orderCreatedAt?: string
   paymentMethod: string
   items: Array<{ productId: string; quantity: number; unitPrice?: number }>
 }
@@ -62,6 +63,7 @@ export async function completeSale(ctx: OwnerContext, input: CompleteSaleInput):
     p_shipping_fee: input.shippingFee ?? 0,
     p_courier: input.courier ?? null,
     p_shipping_paid_by: input.shippingPaidBy ?? 'customer',
+    p_order_created_at: input.orderCreatedAt ?? null,
   })
   if (error) throw error
 

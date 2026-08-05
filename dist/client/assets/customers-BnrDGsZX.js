@@ -1,0 +1,1 @@
+import{j as o}from"./index-Dgtl8cuF.js";import{C as t}from"./ComingSoon-CJsmKgSD.js";import"./createLucideIcon-DtNl-405.js";const e=()=>o.jsx(t,{title:"Customers",description:"A customer database is coming in a future update."});export{e as component};

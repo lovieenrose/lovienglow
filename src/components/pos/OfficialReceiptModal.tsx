@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import type { BusinessProfile, SalesOrder } from '@/lib/inventory/types'
 import { formatPeso } from '@/routes/dashboard/pos'
 
-// A downloadable Official Receipt (OR) — proof of payment received, issued
+// A downloadable digital receipt — proof of payment received, issued
 // only once a sale is actually `paid`. Deliberately separate from the
 // Invoice ("Order Form"): the invoice is what's owed before payment; this
 // is what was actually received, with its own OR-000001 sequence assigned
@@ -43,15 +43,15 @@ export function OfficialReceiptModal({
     <div className="dash-modal-overlay" onClick={onClose}>
       <div className="dash-modal dash-modal--invoice" onClick={(e) => e.stopPropagation()}>
         <div className="dash-modal__header">
-          <h2>Official Receipt</h2>
+          <h2>DIGITAL RECIEPT</h2>
           <button type="button" className="dash-modal__close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="dash-modal__body dash-invoice-layout">
           <div className="dash-invoice-preview" ref={receiptRef}>
             <div className="dash-invoice-preview__head">
-              <h3>{businessProfile?.business_name || 'Official Receipt'}</h3>
+              <h3>{businessProfile?.business_name || 'DIGITAL RECIEPT'}</h3>
               <div className="dash-invoice-preview__meta">
-                <b>OFFICIAL RECEIPT</b>
+                <b>DIGITAL RECIEPT</b>
                 <span>{order.receipt_number ?? '—'}</span>
               </div>
             </div>
@@ -69,13 +69,13 @@ export function OfficialReceiptModal({
               <b>{formatPeso(order.total)}</b>
             </div>
             <p className="dash-invoice-preview__note">
-              Payment received in full for Order {order.order_number}. Thank you for your business!
+              Payment received in full for Order {order.order_number}. Thank you so much for your purchase! I’m truly grateful for your trust and support. Until next time! :D
             </p>
           </div>
 
           <div className="dash-invoice-side">
             <button className="button button--outline button--wide" onClick={downloadPng} disabled={downloading}>
-              <Download size={14} /> {downloading ? 'Generating…' : 'Download Official Receipt (PNG)'}
+              <Download size={14} /> {downloading ? 'Generating…' : 'Download Digital Reciept (PNG)'}
             </button>
             {error && <p className="dash-login__error">{error}</p>}
           </div>

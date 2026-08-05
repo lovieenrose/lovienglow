@@ -1,0 +1,1 @@
+import{j as o}from"./index-Dgtl8cuF.js";import{C as i}from"./ComingSoon-CJsmKgSD.js";import"./createLucideIcon-DtNl-405.js";const s=()=>o.jsx(i,{title:"Emails",description:"A full email history view is coming in a future update."});export{s as component};

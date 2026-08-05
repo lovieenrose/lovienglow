@@ -40,7 +40,10 @@ export function formatPeso(value: number): string {
 }
 
 const PAYMENT_METHODS = ['Maribank', 'GoTyme', 'GCash']
-const COURIERS = ['Lalamove', 'J&T']
+const COURIER_LALAMOVE_DIRECT = 'Lalamove (Pay Courier Directly)'
+const COURIER_LALAMOVE_INVOICE = 'Lalamove (Add to Invoice)'
+const COURIER_JNT = 'J&T'
+const COURIERS = [COURIER_LALAMOVE_DIRECT, COURIER_LALAMOVE_INVOICE, COURIER_JNT]
 
 interface CartLine {
   productId: string
@@ -54,6 +57,21 @@ interface CartLine {
 }
 
 type PageTab = 'new_sale' | 'history'
+
+function localDateTimeParts(date = new Date()) {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${min}` }
+}
+
+function toOrderTimestamp(orderDate: string, orderTime: string) {
+  if (!orderDate || !orderTime) return undefined
+  const local = new Date(`${orderDate}T${orderTime}:00`)
+  return Number.isNaN(local.getTime()) ? undefined : local.toISOString()
+}
 
 function PosPage() {
   const data = Route.useLoaderData()
@@ -115,6 +133,9 @@ function NewSaleView({
   const [shippingFee, setShippingFee] = useState(0)
   const [courier, setCourier] = useState('')
   const [shippingPaidBy, setShippingPaidBy] = useState<'customer' | 'business'>('customer')
+  const [freeShippingPromo, setFreeShippingPromo] = useState(false)
+  const [orderDate, setOrderDate] = useState(() => localDateTimeParts().date)
+  const [orderTime, setOrderTime] = useState(() => localDateTimeParts().time)
   const [promoCode, setPromoCode] = useState('')
   const [appliedPromo, setAppliedPromo] = useState<Promo | null>(null)
   const [customerName, setCustomerName] = useState('')
@@ -243,11 +264,10 @@ function NewSaleView({
     return 0
   }, [appliedPromo, cartHasTrigger, subtotal])
 
-  // Shipping is never part of what this business collects through the POS:
-  // the customer pays the courier directly (COD), or the business shoulders
-  // it as free shipping (logged as an Expense instead — see checkout below).
-  // Either way it stays off Revenue/COGS/Margin.
-  const total = Math.max(0, subtotal - discount)
+  const paysCourierDirectly = courier === COURIER_LALAMOVE_DIRECT
+  const shippingCharge = !paysCourierDirectly && !freeShippingPromo ? shippingFee : 0
+  const shippingPromoDiscount = !paysCourierDirectly && freeShippingPromo ? shippingFee : 0
+  const total = Math.max(0, subtotal - discount) + shippingCharge
   const grossProfit = total - cogs
   const marginPct = total > 0 ? (grossProfit / total) * 100 : 0
 
@@ -263,18 +283,19 @@ function NewSaleView({
           discount,
           shippingFee,
           courier: courier || undefined,
-          shippingPaidBy,
+          shippingPaidBy: freeShippingPromo ? 'business' : shippingPaidBy,
+          orderCreatedAt: toOrderTimestamp(orderDate, orderTime),
           items: cart.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice })),
         },
       })
-      if (shippingPaidBy === 'business' && shippingFee > 0) {
+      if (!paysCourierDirectly && shippingFee > 0) {
         try {
           await createExpenseFn({
             data: {
               category: 'Shipping',
-              description: `Shipping shouldered for order ${order.order_number}${courier ? ` (${courier})` : ''}`,
+              description: `${freeShippingPromo ? 'Free shipping promo' : 'Shipping courier expense'} for order ${order.order_number}${courier ? ` (${courier})` : ''}`,
               amount: shippingFee,
-              expense_date: new Date().toISOString().slice(0, 10),
+              expense_date: orderDate,
             },
           })
         } catch {
@@ -286,6 +307,10 @@ function NewSaleView({
       setShippingFee(0)
       setCourier('')
       setShippingPaidBy('customer')
+      setFreeShippingPromo(false)
+      const nowParts = localDateTimeParts()
+      setOrderDate(nowParts.date)
+      setOrderTime(nowParts.time)
       setPromoCode('')
       setAppliedPromo(null)
       setCustomerName('')
@@ -441,16 +466,27 @@ function NewSaleView({
         </label>
         <div className="dash-form-grid">
           <label className="dash-field">
+            <span>Date</span>
+            <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
+          </label>
+          <label className="dash-field">
+            <span>Time</span>
+            <input type="time" value={orderTime} onChange={(e) => setOrderTime(e.target.value)} />
+          </label>
+        </div>
+        <div className="dash-form-grid">
+          <label className="dash-field">
             <span>Courier</span>
             <select
               value={courier}
               onChange={(e) => {
                 const next = e.target.value
                 setCourier(next)
-                if (next === 'Lalamove') {
-                  // Lalamove's fee is set in-app by the rider/courier at pickup, not
-                  // known at checkout — nothing to record or shoulder here.
+                setFreeShippingPromo(false)
+                if (next === COURIER_LALAMOVE_DIRECT) {
                   setShippingFee(0)
+                  setShippingPaidBy('customer')
+                } else if (next === COURIER_JNT || next === COURIER_LALAMOVE_INVOICE) {
                   setShippingPaidBy('customer')
                 }
               }}
@@ -459,37 +495,33 @@ function NewSaleView({
               {COURIERS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </label>
-          {courier !== 'Lalamove' && (
+          {courier !== COURIER_LALAMOVE_DIRECT && (
             <label className="dash-field">
               <span>Shipping Fee</span>
               <input type="number" min={0} step="0.01" value={shippingFee || ''} placeholder="0" onChange={(e) => setShippingFee(Number(e.target.value))} />
             </label>
           )}
         </div>
-        {courier === 'Lalamove' ? (
-          <p className="dash-field__hint">Shipping Fee (Lalamove) — pay courier directly.</p>
+        {courier === COURIER_LALAMOVE_DIRECT ? (
+          <p className="dash-field__hint">Customer pays the Lalamove rider directly, so shipping is not added to the invoice total.</p>
         ) : (
           <>
-            <div className="dash-segmented">
-              <button
-                type="button"
-                className={`dash-segmented__btn ${shippingPaidBy === 'customer' ? 'is-active' : ''}`}
-                onClick={() => setShippingPaidBy('customer')}
-              >
-                Customer pays
-              </button>
-              <button
-                type="button"
-                className={`dash-segmented__btn ${shippingPaidBy === 'business' ? 'is-active' : ''}`}
-                onClick={() => setShippingPaidBy('business')}
-              >
-                I'll shoulder it (free shipping)
-              </button>
-            </div>
+            <label className="dash-check-row">
+              <input
+                type="checkbox"
+                checked={freeShippingPromo}
+                disabled={!courier || shippingFee <= 0}
+                onChange={(e) => {
+                  setFreeShippingPromo(e.target.checked)
+                  setShippingPaidBy(e.target.checked ? 'business' : 'customer')
+                }}
+              />
+              <span>Free Shipping Promo</span>
+            </label>
             <p className="dash-field__hint">
-              {shippingPaidBy === 'customer'
-                ? "Shipping fee is for your records only — it's never added to the customer's total, since they pay the courier directly."
-                : "Free shipping for the customer — this amount will be logged as a Shipping expense when you check out."}
+              {freeShippingPromo
+                ? 'Shipping is calculated and logged as a Shipping expense, then deducted from the customer invoice.'
+                : 'Shipping is added to the invoice total. J&T uses this by default, and Lalamove can use it when the customer pays in advance.'}
             </p>
           </>
         )}
@@ -519,13 +551,14 @@ function NewSaleView({
           <div>
             <span>Shipping Fee{courier ? ` (${courier})` : ''}</span>
             <span>
-              {courier === 'Lalamove'
+              {courier === COURIER_LALAMOVE_DIRECT
                 ? 'Pay courier directly'
                 : shippingFee > 0
-                  ? `${formatPeso(shippingFee)} — ${shippingPaidBy === 'customer' ? 'customer pays' : 'you shoulder'}`
+                  ? `${formatPeso(shippingFee)} — ${freeShippingPromo ? 'free promo' : 'added to invoice'}`
                   : 'None'}
             </span>
           </div>
+          {shippingPromoDiscount > 0 && <div><span>Free Shipping Promo</span><span>-{formatPeso(shippingPromoDiscount)}</span></div>}
           <div><span>Promo / Discount Code</span><span>{appliedPromo ? appliedPromo.code : 'None'}</span></div>
           <div><span>Discount</span><span>-{formatPeso(discount)}</span></div>
           <div><span>Total Revenue</span><span>{formatPeso(total)}</span></div>
